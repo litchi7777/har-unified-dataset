@@ -2,10 +2,21 @@
 OpenPack データセット前処理
 
 OpenPack データセット:
-- 10種類の物流作業操作（packaging operations）
-- 10人の被験者
-- 4つのIMUセンサー（atr01, atr02, atr03, atr04）
-- サンプリングレート: 30Hz
+- **アクティビティ**: 11クラス（0-9 + undefined/-1）の物流作業操作
+  - 0: Assemble, 1: Insert, 2: Put, 3: Walk, 4: Pick,
+  - 5: Scan, 6: Press, 7: Open, 8: Close, 9: Other
+  - -1: Undefined（無操作・ラベルなし）
+- **被験者**: データセットに応じて可変（通常U0101-U0110など）
+- **センサー**: 4つのATR TSND151 IMUセンサー（atr01, atr02, atr03, atr04）
+  - 各センサー: ACC (3軸), GYRO (3軸), QUAT (4値) = 10チャンネル
+  - 合計: 40チャンネル（4センサー × 10チャンネル）
+- **サンプリングレート**: 30Hz
+- **単位**:
+  - ACC: G（重力加速度）- すでに正規化済み
+  - GYRO: dps（degrees per second）
+  - QUAT: 無次元（クォータニオン）
+
+参考: https://open-pack.github.io/
 """
 
 import numpy as np
@@ -45,9 +56,9 @@ class OpenPackPreprocessor(BasePreprocessor):
         super().__init__(config)
 
         # OpenPack固有の設定
-        self.num_activities = 10  # 操作クラス（0は無操作として除外）
-        self.num_subjects = 10  # 実際の被験者数は確認が必要
-        self.num_sensors = 4
+        self.num_activities = 10  # 操作クラス（0-9）+ undefined (-1)で実質11クラス
+        self.num_subjects = None  # データセットに応じて可変（動的に検出）
+        self.num_sensors = 4  # ATR TSND151 IMU × 4
         self.num_channels = 40  # 4 sensors × 10 channels (acc:3 + gyro:3 + quat:4)
 
         # センサー名とチャンネルマッピング
