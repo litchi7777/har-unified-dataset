@@ -62,10 +62,14 @@ NEW_UI_TEMPLATE = """
             background: #f5f5f5;
             overflow: hidden;
             height: 100vh;
+            width: 100vw;
         }
         .app-container {
             display: flex;
             height: 100vh;
+            width: 100vw;
+            max-width: 100vw;
+            overflow: hidden;
         }
 
         /* 最左ナビゲーションバー */
@@ -107,11 +111,14 @@ NEW_UI_TEMPLATE = """
 
         /* 左サイドバー */
         .sidebar {
-            width: 400px;
+            width: 300px;
+            min-width: 250px;
+            max-width: 400px;
             background: white;
             border-right: 1px solid #e0e0e0;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
         .sidebar-header {
             padding: 16px;
@@ -126,6 +133,7 @@ NEW_UI_TEMPLATE = """
         .tree-container {
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
             padding: 8px;
         }
         .tree-node {
@@ -186,6 +194,7 @@ NEW_UI_TEMPLATE = """
         /* 右側メインエリア */
         .main-area {
             flex: 1;
+            min-width: 0;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -226,7 +235,9 @@ NEW_UI_TEMPLATE = """
         .panels-container {
             flex: 1;
             overflow-y: auto;
+            overflow-x: hidden;
             padding: 16px;
+            max-width: 100%;
         }
 
         /* パネル */
@@ -236,6 +247,7 @@ NEW_UI_TEMPLATE = """
             border-radius: 8px;
             margin-bottom: 16px;
             overflow: hidden;
+            max-width: 100%;
         }
         .panel-header {
             padding: 12px 16px;
@@ -282,12 +294,16 @@ NEW_UI_TEMPLATE = """
         }
         .panel-content {
             display: flex;
+            max-width: 100%;
+            overflow: hidden;
         }
         .panel-metadata {
-            min-width: 150px;
+            min-width: 120px;
+            max-width: 150px;
             padding: 12px;
             border-right: 1px solid #e0e0e0;
             background: #fafafa;
+            flex-shrink: 0;
         }
         .metadata-item {
             margin-bottom: 8px;
@@ -305,13 +321,16 @@ NEW_UI_TEMPLATE = """
         }
         .panel-plots {
             flex: 1;
+            min-width: 0;
             display: flex;
             overflow-x: auto;
+            overflow-y: hidden;
             padding: 12px;
             gap: 12px;
         }
         .plot-item {
-            min-width: 300px;
+            min-width: 280px;
+            max-width: 500px;
             flex-shrink: 0;
         }
         .plot-header {
@@ -527,6 +546,71 @@ NEW_UI_TEMPLATE = """
         }
         #statsView.active {
             flex-direction: column;
+        }
+
+        /* レスポンシブデザイン */
+        @media (max-width: 1200px) {
+            .sidebar {
+                width: 250px;
+                min-width: 200px;
+            }
+            .plot-item {
+                min-width: 250px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-bar {
+                width: 60px;
+            }
+            .nav-label {
+                display: none;
+            }
+            .sidebar {
+                width: 200px;
+                min-width: 150px;
+            }
+            .panel-metadata {
+                min-width: 100px;
+                max-width: 120px;
+            }
+            .plot-item {
+                min-width: 220px;
+                max-width: 400px;
+            }
+            .main-header {
+                padding: 12px 16px;
+            }
+            .panels-container {
+                padding: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .nav-bar {
+                display: none;
+            }
+            .sidebar {
+                width: 100%;
+                max-width: 100%;
+                border-right: none;
+            }
+            .main-area {
+                display: none;
+            }
+            .app-container {
+                flex-direction: column;
+            }
+        }
+
+        /* Plotly グラフのレスポンシブ対応 */
+        .js-plotly-plot {
+            width: 100% !important;
+            height: auto !important;
+        }
+        .js-plotly-plot .plotly {
+            width: 100% !important;
+            height: auto !important;
         }
     </style>
 </head>
