@@ -198,9 +198,19 @@ class OpenPackPreprocessor(BasePreprocessor):
             user_id_str = csv_file.stem.split('-')[0]  # "U0101"
 
             try:
-                # U0101 -> 101 -> USER00001 (101から始まるIDを1から始まるように変換)
+                # U0101 -> 101 -> USER00001
+                # OpenPackのユーザーIDは101-110, 201-210の範囲
+                # 101-110 -> USER00001-USER00010
+                # 201-210 -> USER00011-USER00020
                 original_user_id = int(user_id_str[1:])
-                user_id = f"USER{(original_user_id - 100):05d}"  # 101 -> USER00001, 102 -> USER00002, etc.
+
+                if 101 <= original_user_id <= 110:
+                    user_id = f"USER{(original_user_id - 100):05d}"  # 101 -> USER00001, 110 -> USER00010
+                elif 201 <= original_user_id <= 210:
+                    user_id = f"USER{(original_user_id - 190):05d}"  # 201 -> USER00011, 210 -> USER00020
+                else:
+                    logger.warning(f"Unexpected user ID: {user_id_str}, skipping")
+                    continue
 
                 # データ読み込み
                 df = pd.read_csv(csv_file)
