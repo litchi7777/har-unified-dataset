@@ -332,6 +332,9 @@ NEW_UI_TEMPLATE = """
             min-width: 280px;
             max-width: 500px;
             flex-shrink: 0;
+            height: 300px;
+            display: flex;
+            flex-direction: column;
         }
         .plot-header {
             font-size: 12px;
@@ -340,6 +343,11 @@ NEW_UI_TEMPLATE = """
             padding: 8px;
             background: #f8f9fa;
             border-radius: 4px;
+            flex-shrink: 0;
+        }
+        .plot-item > div:last-child {
+            flex: 1;
+            min-height: 0;
         }
         .empty-state {
             text-align: center;
@@ -1134,7 +1142,7 @@ NEW_UI_TEMPLATE = """
             }
 
             const layout = {
-                height: 280,
+                autosize: true,
                 margin: { t: 20, r: showLegend ? 80 : 20, b: 40, l: 50 },
                 xaxis: { title: 'Time (samples)', titlefont: { size: 10 } },
                 yaxis: { title: 'Value', titlefont: { size: 10 } },
@@ -1150,7 +1158,13 @@ NEW_UI_TEMPLATE = """
                 font: { size: 10 }
             };
 
-            Plotly.newPlot(plotId, traces, layout, { responsive: true });
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false
+            };
+
+            Plotly.newPlot(plotId, traces, layout, config);
         }
 
 
