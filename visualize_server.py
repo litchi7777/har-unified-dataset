@@ -605,12 +605,10 @@ NEW_UI_TEMPLATE = """
 
         /* Plotly グラフのレスポンシブ対応 */
         .js-plotly-plot {
-            width: 100% !important;
-            height: auto !important;
+            width: 100%;
         }
-        .js-plotly-plot .plotly {
-            width: 100% !important;
-            height: auto !important;
+        .plot-item > div {
+            height: 350px !important;
         }
     </style>
 </head>
@@ -1139,6 +1137,7 @@ NEW_UI_TEMPLATE = """
             }
 
             const layout = {
+                height: 350,
                 margin: { t: 20, r: showLegend ? 80 : 20, b: 40, l: 50 },
                 xaxis: { title: 'Time (samples)', titlefont: { size: 10 } },
                 yaxis: { title: 'Value', titlefont: { size: 10 } },
