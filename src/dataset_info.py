@@ -108,8 +108,8 @@ def get_available_sensors(data_root: str) -> List[str]:
     sensors = []
     for item in data_path.iterdir():
         if item.is_dir():
-            # X.npy, Y.npy, U.npy が存在するかチェック
-            required_files = ['X.npy', 'Y.npy', 'U.npy']
+            # X.npy, Y.npy が存在するかチェック
+            required_files = ['X.npy', 'Y.npy']
             if all((item / f).exists() for f in required_files):
                 sensors.append(item.name)
 
@@ -142,15 +142,17 @@ def get_dataset_info(dataset_name: str, data_root: str = None) -> Dict[str, any]
             available_sensors = get_available_sensors(data_root)
             info['available_sensors'] = available_sensors
 
-            # 最初のセンサーからユーザー情報とデータサイズを取得
+            # 最初のセンサーからデータサイズを取得
             if available_sensors:
                 sensor_path = Path(data_root) / available_sensors[0]
                 Y = np.load(sensor_path / "Y.npy")
-                U = np.load(sensor_path / "U.npy")
                 X = np.load(sensor_path / "X.npy")
 
-                info['num_users'] = len(np.unique(U))
-                info['user_ids'] = sorted(np.unique(U).tolist())
+                # ユーザー数はディレクトリ構造から取得
+                user_dirs = [d.name for d in Path(data_root).parent.iterdir()
+                            if d.is_dir() and d.name.startswith('USER')]
+                info['num_users'] = len(user_dirs)
+                info['user_ids'] = sorted(user_dirs)
                 info['num_samples'] = len(Y)
                 info['channels_per_sensor'] = X.shape[1] if len(X.shape) > 1 else 1
                 info['sequence_length'] = X.shape[2] if len(X.shape) > 2 else X.shape[1]
@@ -171,15 +173,18 @@ def get_dataset_info(dataset_name: str, data_root: str = None) -> Dict[str, any]
         # 最初のセンサーから情報を取得
         sensor_path = Path(data_root) / available_sensors[0]
         Y = np.load(sensor_path / "Y.npy")
-        U = np.load(sensor_path / "U.npy")
         X = np.load(sensor_path / "X.npy")
+
+        # ユーザー数はディレクトリ構造から取得
+        user_dirs = [d.name for d in Path(data_root).parent.iterdir()
+                    if d.is_dir() and d.name.startswith('USER')]
 
         return {
             'dataset_name': dataset_name,
             'available_sensors': available_sensors,
             'sensor_list': available_sensors,
-            'num_users': len(np.unique(U)),
-            'user_ids': sorted(np.unique(U).tolist()),
+            'num_users': len(user_dirs),
+            'user_ids': sorted(user_dirs),
             'num_samples': len(Y),
             'n_classes': len(np.unique(Y)),
             'channels_per_sensor': X.shape[1] if len(X.shape) > 1 else 1,

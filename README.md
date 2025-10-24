@@ -95,11 +95,15 @@ python visualize_server.py --port 8080
 
 ```
 data/processed/{dataset_name}/
-├── {sensor_name}/
-│   ├── X.npy          # センサーデータ (n_samples, n_channels, sequence_length)
-│   ├── Y.npy          # ラベル (n_samples,)
-│   └── U.npy          # ユーザーID (n_samples,)
+├── USER00001/
+│   ├── {sensor_name}/
+│   │   ├── X.npy      # センサーデータ (n_samples, n_channels, sequence_length)
+│   │   └── Y.npy      # ラベル (n_samples,)
+├── USER00002/
+│   └── ...
 ```
+
+ユーザー情報はディレクトリ構造で管理されます。
 
 ### データセット固有の処理
 
