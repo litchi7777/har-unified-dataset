@@ -109,15 +109,11 @@ def create_sliding_windows(
     for start in range(0, num_samples - window_size + 1, stride):
         end = start + window_size
         window = data[start:end]
-        # ウィンドウ内で最頻のラベルを使用
+        # ウィンドウ内で最頻のラベルを使用（負のラベルも含む）
         window_label_candidates = labels[start:end]
-        # 負のラベル（例: -1）を持つサンプルを除外してから最頻値を計算
-        valid_labels = window_label_candidates[window_label_candidates >= 0]
-        if len(valid_labels) > 0:
-            label = np.bincount(valid_labels).argmax()
-        else:
-            # すべてのラベルが負の場合は-1を使用
-            label = -1
+        # 最頻値を計算（負のラベルにも対応）
+        unique_labels, counts = np.unique(window_label_candidates, return_counts=True)
+        label = unique_labels[counts.argmax()]
         windows.append(window)
         window_labels.append(label)
 
@@ -132,25 +128,19 @@ def create_sliding_windows(
                 window = data[remaining_start:]
                 pad_width = [(0, window_size - remaining_samples)] + [(0, 0)] * (data.ndim - 1)
                 window = np.pad(window, pad_width, mode='edge')  # 最後の値で埋める
-                # 負のラベルを除外して最頻値を計算
+                # 最頻値を計算（負のラベルも含む）
                 remaining_label_candidates = labels[remaining_start:]
-                valid_labels = remaining_label_candidates[remaining_label_candidates >= 0]
-                if len(valid_labels) > 0:
-                    label = np.bincount(valid_labels).argmax()
-                else:
-                    label = -1
+                unique_labels, counts = np.unique(remaining_label_candidates, return_counts=True)
+                label = unique_labels[counts.argmax()]
                 windows.append(window)
                 window_labels.append(label)
             else:
                 # 最後のwindow_sizeサンプルを使用
                 window = data[-window_size:]
-                # 負のラベルを除外して最頻値を計算
+                # 最頻値を計算（負のラベルも含む）
                 last_label_candidates = labels[-window_size:]
-                valid_labels = last_label_candidates[last_label_candidates >= 0]
-                if len(valid_labels) > 0:
-                    label = np.bincount(valid_labels).argmax()
-                else:
-                    label = -1
+                unique_labels, counts = np.unique(last_label_candidates, return_counts=True)
+                label = unique_labels[counts.argmax()]
                 windows.append(window)
                 window_labels.append(label)
 
