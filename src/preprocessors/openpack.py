@@ -198,9 +198,9 @@ class OpenPackPreprocessor(BasePreprocessor):
             user_id_str = csv_file.stem.split('-')[0]  # "U0101"
 
             try:
-                # U0101 -> 101 -> 1 (整数、101から始まるIDを1から始まるように変換)
+                # U0101 -> 101 -> USER00001 (101から始まるIDを1から始まるように変換)
                 original_user_id = int(user_id_str[1:])
-                user_id = original_user_id - 100  # 101 -> 1, 102 -> 2, etc.
+                user_id = f"USER{(original_user_id - 100):05d}"  # 101 -> USER00001, 102 -> USER00002, etc.
 
                 # データ読み込み
                 df = pd.read_csv(csv_file)
@@ -237,7 +237,7 @@ class OpenPackPreprocessor(BasePreprocessor):
                 data = np.vstack(data_dict['data'])
                 labels = np.hstack(data_dict['labels'])
                 result[user_id] = (data, labels)
-                logger.info(f"USER{user_id:05d}: {data.shape}, Labels: {labels.shape}")
+                logger.info(f"{user_id}: {data.shape}, Labels: {labels.shape}")
 
         if not result:
             raise ValueError("No data loaded. Please check the raw data directory structure.")
@@ -260,7 +260,7 @@ class OpenPackPreprocessor(BasePreprocessor):
             # 無効なサンプルを除去
             cleaned_data, cleaned_labels = filter_invalid_samples(person_data, labels)
             cleaned[person_id] = (cleaned_data, cleaned_labels)
-            logger.info(f"USER{person_id:05d} cleaned: {cleaned_data.shape}")
+            logger.info(f"{person_id} cleaned: {cleaned_data.shape}")
 
         return cleaned
 
@@ -278,7 +278,7 @@ class OpenPackPreprocessor(BasePreprocessor):
         processed = {}
 
         for person_id, (person_data, labels) in data.items():
-            logger.info(f"Processing USER{person_id:05d}")
+            logger.info(f"Processing {person_id}")
 
             processed[person_id] = {}
 
@@ -359,8 +359,8 @@ class OpenPackPreprocessor(BasePreprocessor):
         }
 
         for person_id, sensor_modality_data in data.items():
-            user_name = f"USER{person_id:05d}"
-            user_path = base_path / user_name
+            # person_id is already in "USER00001" format
+            user_path = base_path / person_id
             user_path.mkdir(parents=True, exist_ok=True)
 
             user_stats = {'sensor_modalities': {}}
@@ -385,11 +385,11 @@ class OpenPackPreprocessor(BasePreprocessor):
                 }
 
                 logger.info(
-                    f"Saved {user_name}/{sensor_modality_name}: "
+                    f"Saved {person_id}/{sensor_modality_name}: "
                     f"X{X.shape}, Y{Y.shape}"
                 )
 
-            total_stats['users'][user_name] = user_stats
+            total_stats['users'][person_id] = user_stats
 
         # 全体のメタデータを保存
         metadata_path = base_path / 'metadata.json'
