@@ -332,7 +332,7 @@ NEW_UI_TEMPLATE = """
             min-width: 280px;
             max-width: 500px;
             flex-shrink: 0;
-            height: 300px;
+            height: 250px;
             display: flex;
             flex-direction: column;
         }
