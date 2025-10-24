@@ -1,0 +1,97 @@
+# データセット前処理設定
+
+# グローバル設定
+global:
+  raw_data_path: data/raw
+  processed_data_path: data/processed
+  seed: 42
+
+# データセット固有の設定
+datasets:
+  # DSADS (Daily and Sports Activities Dataset)
+  dsads:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は25Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # 正規化方法: 'standardize', 'minmax', 'normalize'
+    normalize_method: standardize
+
+    # データ分割比率
+    train_ratio: 0.7
+    val_ratio: 0.15
+    test_ratio: 0.15
+
+    # データセット情報（参考用）
+    num_activities: 19
+    num_subjects: 8
+    num_channels: 45
+    original_sampling_rate: 25  # Hz (元データ)
+    # sampling_rateは30Hzにリサンプリングされる
+
+  # MHEALTH (Mobile Health) Dataset
+  mhealth:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は50Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # 正規化方法: 'standardize', 'minmax', 'normalize'
+    normalize_method: standardize
+
+    # データ分割比率
+    train_ratio: 0.7
+    val_ratio: 0.15
+    test_ratio: 0.15
+
+    # データセット情報（参考用）
+    num_activities: 12
+    num_subjects: 10
+    num_channels: 23
+    original_sampling_rate: 50  # Hz (元データ)
+    # sampling_rateは30Hzにリサンプリングされる
+
+  # OpenPack (Logistics Packaging Operations) Dataset
+  openpack:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元から30Hz、リサンプリング不要)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データ分割比率
+    train_ratio: 0.7
+    val_ratio: 0.15
+    test_ratio: 0.15
+
+    # データセット情報（参考用）
+    num_activities: 10
+    num_subjects: 10
+    num_channels: 40  # 4 IMU sensors × 10 channels (ACC:3 + GYRO:3 + QUAT:4)
+    original_sampling_rate: 30  # Hz
+    # リサンプリング不要
+
+# ロギング設定
+logging:
+  level: INFO           # DEBUG, INFO, WARNING, ERROR
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  save_to_file: true
+  log_dir: logs/preprocessing
