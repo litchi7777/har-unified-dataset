@@ -607,9 +607,6 @@ NEW_UI_TEMPLATE = """
         .js-plotly-plot {
             width: 100%;
         }
-        .plot-item > div {
-            height: 350px !important;
-        }
     </style>
 </head>
 <body>
@@ -1137,7 +1134,7 @@ NEW_UI_TEMPLATE = """
             }
 
             const layout = {
-                height: 350,
+                height: 280,
                 margin: { t: 20, r: showLegend ? 80 : 20, b: 40, l: 50 },
                 xaxis: { title: 'Time (samples)', titlefont: { size: 10 } },
                 yaxis: { title: 'Value', titlefont: { size: 10 } },
