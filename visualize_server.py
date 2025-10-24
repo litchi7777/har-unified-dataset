@@ -1113,31 +1113,40 @@ NEW_UI_TEMPLATE = """
             const xValues = Array.from({length: windowSize}, (_, i) => i);
 
             const traces = [];
-            const colors = ['#ea4335', '#34a853', '#1a73e8'];
-            const names = ['X-axis', 'Y-axis', 'Z-axis'];
 
-            // 各軸
-            for (let ch = 0; ch < Math.min(numChannels, 3); ch++) {
+            // チャンネル数に応じて色とラベルを生成
+            const colors = ['#ea4335', '#34a853', '#1a73e8', '#fbbc04', '#9c27b0'];
+            const axisLabels = {
+                2: ['Ch1', 'Ch2'],
+                3: ['X', 'Y', 'Z'],
+                4: ['X', 'Y', 'Z', 'W']
+            };
+            const names = axisLabels[numChannels] || Array.from({length: numChannels}, (_, i) => `Ch${i+1}`);
+
+            // 各チャンネル
+            for (let ch = 0; ch < numChannels; ch++) {
                 traces.push({
                     x: xValues,
                     y: data[ch],
                     mode: 'lines',
                     name: names[ch],
-                    line: { color: colors[ch], width: 1.5 }
+                    line: { color: colors[ch % colors.length], width: 1.5 }
                 });
             }
 
-            // Magnitude
+            // Magnitude (3チャンネル以上の場合のみ)
             if (numChannels >= 3) {
-                const magnitude = data[0].map((_, i) =>
-                    Math.sqrt(data[0][i]**2 + data[1][i]**2 + data[2][i]**2)
+                let magnitudeSquared = data[0].map((_, i) =>
+                    data.slice(0, Math.min(numChannels, 4)).reduce((sum, channel) => sum + channel[i]**2, 0)
                 );
+                const magnitude = magnitudeSquared.map(val => Math.sqrt(val));
+
                 traces.push({
                     x: xValues,
                     y: magnitude,
                     mode: 'lines',
                     name: 'Magnitude',
-                    line: { color: '#9e9e9e', width: 2 }
+                    line: { color: '#9e9e9e', width: 2, dash: 'dot' }
                 });
             }
 
