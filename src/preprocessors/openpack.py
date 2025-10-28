@@ -390,8 +390,8 @@ class OpenPackPreprocessor(BasePreprocessor):
                 sensor_modality_path = user_path / sensor_modality_name
                 sensor_modality_path.mkdir(parents=True, exist_ok=True)
 
-                # X.npy, Y.npy を保存
-                X = arrays['X']  # (num_windows, C, window_size)
+                # X.npy, Y.npy を保存（float16で効率化）
+                X = arrays['X'].astype(np.float16)  # (num_windows, C, window_size)
                 Y = arrays['Y']  # (num_windows,)
 
                 np.save(sensor_modality_path / 'X.npy', X)

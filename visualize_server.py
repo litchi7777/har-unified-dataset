@@ -57,6 +57,11 @@ NEW_UI_TEMPLATE = """
     <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        html {
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
         body {
             font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: #f5f5f5;
@@ -68,7 +73,6 @@ NEW_UI_TEMPLATE = """
             display: flex;
             height: 100vh;
             width: 100vw;
-            max-width: 100vw;
             overflow: hidden;
         }
 
@@ -112,8 +116,7 @@ NEW_UI_TEMPLATE = """
         /* 左サイドバー */
         .sidebar {
             width: 300px;
-            min-width: 250px;
-            max-width: 400px;
+            flex-shrink: 0;
             background: white;
             border-right: 1px solid #e0e0e0;
             display: flex;
@@ -195,6 +198,7 @@ NEW_UI_TEMPLATE = """
         .main-area {
             flex: 1;
             min-width: 0;
+            max-width: 100%;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -237,7 +241,8 @@ NEW_UI_TEMPLATE = """
             overflow-y: auto;
             overflow-x: hidden;
             padding: 16px;
-            max-width: 100%;
+            width: 100%;
+            min-width: 0;
         }
 
         /* パネル */
@@ -247,7 +252,8 @@ NEW_UI_TEMPLATE = """
             border-radius: 8px;
             margin-bottom: 16px;
             overflow: hidden;
-            max-width: 100%;
+            width: 100%;
+            min-width: 0;
         }
         .panel-header {
             padding: 12px 16px;
@@ -256,16 +262,23 @@ NEW_UI_TEMPLATE = """
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 12px;
         }
         .panel-title {
             font-weight: 500;
             color: #202124;
             font-size: 14px;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .panel-controls {
             display: flex;
             gap: 8px;
             align-items: center;
+            flex-shrink: 0;
         }
         .panel-controls select,
         .panel-controls input {
@@ -294,16 +307,18 @@ NEW_UI_TEMPLATE = """
         }
         .panel-content {
             display: flex;
-            max-width: 100%;
+            width: 100%;
+            min-width: 0;
+            min-height: 280px;
             overflow: hidden;
         }
         .panel-metadata {
-            min-width: 120px;
-            max-width: 150px;
+            width: 150px;
             padding: 12px;
             border-right: 1px solid #e0e0e0;
             background: #fafafa;
             flex-shrink: 0;
+            overflow-y: auto;
         }
         .metadata-item {
             margin-bottom: 8px;
@@ -327,27 +342,36 @@ NEW_UI_TEMPLATE = """
             overflow-y: hidden;
             padding: 12px;
             gap: 12px;
+            flex-wrap: nowrap;
+            -webkit-overflow-scrolling: touch;
         }
         .plot-item {
-            min-width: 280px;
-            max-width: 500px;
-            flex-shrink: 0;
+            width: 300px;
+            min-width: 300px;
+            max-width: 300px;
+            flex: 0 0 300px;
             height: 250px;
             display: flex;
             flex-direction: column;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            background: white;
         }
         .plot-header {
             font-size: 12px;
             color: #5f6368;
-            margin-bottom: 8px;
             padding: 8px;
             background: #f8f9fa;
-            border-radius: 4px;
+            border-bottom: 1px solid #e0e0e0;
             flex-shrink: 0;
+            height: 36px;
+            box-sizing: border-box;
         }
         .plot-item > div:last-child {
             flex: 1;
-            min-height: 0;
+            width: 100%;
+            height: calc(100% - 36px);
+            overflow: hidden;
         }
         .empty-state {
             text-align: center;
@@ -548,6 +572,9 @@ NEW_UI_TEMPLATE = """
         .view-mode {
             display: none !important;
             flex: 1;
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
         }
         .view-mode.active {
             display: flex !important;
@@ -1082,7 +1109,7 @@ NEW_UI_TEMPLATE = """
                             <div class="plot-header">
                                 <strong>${sample.activity}</strong> (Sample #${sample.index})
                             </div>
-                            <div id="${plotId}" style="width: 100%; height: 150px;"></div>
+                            <div id="${plotId}" style="width: 100%; height: 100%;"></div>
                         </div>
                     `;
                 });
