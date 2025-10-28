@@ -89,6 +89,37 @@ datasets:
     original_sampling_rate: 30  # Hz
     # リサンプリング不要
 
+  # NHANES PAX-G/PAX-H Dataset
+  nhanes:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+    
+    # 処理パラメータ
+    window_size: 5        # ウィンドウサイズ（秒）
+    sampling_rate: 80     # サンプリングレート（Hz）
+    std_threshold: 0.02   # アクティビティ判定用標準偏差閾値
+    
+    # ユーザーID管理
+    start_id: 62161       # 開始ユーザーID (PAX-G)
+    end_id: 75557         # 終了ユーザーID (PAX-H含む全ユーザー: 約13000人)
+    # PAX-G: 62161-73556 (2011年), PAX-H: 73557-75557 (2013年)
+    discover_users: false  # ユーザーID自動発見モード（IDに抜けがあるため推奨）
+    discovery_batch_size: 100  # 発見モード時のバッチサイズ
+    batch_size: 100       # 処理バッチサイズ
+    
+    # 並列処理設定
+    parallel: false       # 1ファイルずつ順次処理
+    workers: 4            # 並列ワーカー数（parallelがtrueの場合のみ使用）
+    
+    # ダウンロード設定
+    max_retries: 3        # 最大リトライ回数
+    retry_delay: 5        # リトライ間隔（秒）
+    
+    # データセット情報（参考用）
+    num_channels: 3       # X, Y, Z加速度
+    original_sampling_rate: 80  # Hz
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR

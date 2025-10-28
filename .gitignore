@@ -67,3 +67,4 @@ Thumbs.db
 *.temp
 *.swp
 *.swo
+temp/

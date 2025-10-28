@@ -75,6 +75,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .nhanes_pax import NHANESPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',
