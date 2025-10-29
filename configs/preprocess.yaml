@@ -184,6 +184,8 @@ datasets:
     original_sampling_rate: 50  # Hz (元データ)
     # sampling_rateは30Hzにリサンプリングされる
 
+  # MEx (Multi-modal Exercise) Dataset
+  mex:
   # OPPORTUNITY (OPPORTUNITY Activity Recognition) Dataset
   opportunity:
     # データパス
@@ -191,7 +193,8 @@ datasets:
     processed_data_path: data/processed
 
     # サンプリングレート
-    target_sampling_rate: 30  # Hz (元から30Hz、リサンプリング不要)
+
+    target_sampling_rate: 30  # Hz (元は100Hzからリサンプリング)
 
     # ウィンドウパラメータ
     window_size: 150      # 5秒 @ 30Hz

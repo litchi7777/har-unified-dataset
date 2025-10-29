@@ -144,6 +144,22 @@ DATASETS = {
             11: 'Cycling Standing Inactive' # label=140 -> 11 (not in sample, but in spec)
         },
     },
+    "MEX": {
+        "sensor_list": ["Wrist", "Thigh"],
+        "modalities": ["ACC"],  # 加速度センサーのみ（3軸）
+        "n_classes": 7,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 100,  # Hz
+        "scale_factor": None,  # 既にG単位（±8g）なので変換不要
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Exercise 1',
+            1: 'Exercise 2',
+            2: 'Exercise 3',
+            3: 'Exercise 4',
+            4: 'Exercise 5',
+            5: 'Exercise 6',
+            6: 'Exercise 7'
     "OPPORTUNITY": {
         "sensor_list": ["BACK", "RUA", "RLA", "LUA", "LLA", "L_SHOE", "R_SHOE", "ACC_SENSORS"],  # 全Body-wornセンサー（113ch）
         "modalities": {

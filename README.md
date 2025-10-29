@@ -19,6 +19,7 @@ Human Activity Recognition (HAR) データセットの統合前処理・可視�
 | **FORTHTRACE** | 15 | LeftWrist, RightWrist, Torso, RightThigh, LeftAnkle (5箇所) | Shimmer IMU (ACC, GYRO, MAG) | 16 | 51.2Hz → 30Hz | 姿勢遷移含む詳細活動認識 |
 | **HAR70+** | 18 | LowerBack, RightThigh (2箇所) | Axivity AX3 (ACC) | 7 | 50Hz → 30Hz | 高齢者（70-95歳）特化 |
 | **HARTH** | 22 | LowerBack, RightThigh (2箇所) | Axivity AX3 (ACC) | 12 | 50Hz → 30Hz | 自由生活環境、サイクリング含む |
+| **MEX** | 30 | Wrist, Thigh (2箇所) | Axivity AX3 (ACC) | 7 | 100Hz → 30Hz | 理学療法エクササイズ |
 | **OPPORTUNITY** | 4 | 7つのIMU + 12個の加速度センサー (113ch) | IMU (ACC, GYRO, MAG) | 17 | 30Hz | 日常生活動作、mid-level gestures、全身センサー |
 
 ## ディレクトリ構成
@@ -152,6 +153,7 @@ data/processed/forthtrace/
 | FORTHTRACE | 9.8 (m/s²→G) | 51.2Hz | 30Hz | 150 (5秒) | 姿勢遷移ラベル含む |
 | HAR70+ | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 高齢者特化、加速度のみ |
 | HARTH | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 自由生活環境、サイクリング含む |
+| MEX | なし（G単位） | 100Hz | 30Hz | 150 (5秒) | 理学療法エクササイズ |
 | OPPORTUNITY | 9.8 (m/s²→G) | 30Hz | 30Hz | 150 (5秒) | 113チャンネル全body-wornセンサー |
 
 **共通仕様:**
@@ -196,4 +198,5 @@ git submodule update --init --recursive
 - **FORTHTRACE**: FORTH-TRACE Dataset - Human Activity Recognition with Multi-sensor Data (https://zenodo.org/records/841301)
 - **HAR70+**: HAR70+ Dataset - Human Activity Recognition for Older Adults (UCI ML Repository, Dataset #780)
 - **HARTH**: HARTH Dataset - Human Activity Recognition Trondheim Dataset (UCI ML Repository, Dataset #779)
+- **MEX**: Wijekoon, A., Wiratunga, N., & Cooper, K. (2019). MEx: Multi-modal Exercises Dataset for Human Activity Recognition. UCI ML Repository. https://doi.org/10.24432/C59K6T
 - **OPPORTUNITY**: Roggen, D., et al. (2010). Collecting complex activity datasets in highly rich networked sensor environments. *International Conference on Networked Sensing Systems* (UCI ML Repository, Dataset #226)

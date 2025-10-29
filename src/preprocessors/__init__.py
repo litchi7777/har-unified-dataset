@@ -96,6 +96,11 @@ except ImportError:
     pass
 
 try:
+    from .mex import MexPreprocessor
+except ImportError:
+    pass
+  
+try:
     from .opportunity import OpportunityPreprocessor
 except ImportError:
     pass
