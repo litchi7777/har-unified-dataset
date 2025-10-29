@@ -184,6 +184,27 @@ datasets:
     original_sampling_rate: 50  # Hz (元データ)
     # sampling_rateは30Hzにリサンプリングされる
 
+  # OPPORTUNITY (OPPORTUNITY Activity Recognition) Dataset
+  opportunity:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元から30Hz、リサンプリング不要)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 17    # Mid-level gestures (Open/Close doors, drawers, etc.)
+    num_subjects: 4       # S1-S4
+    num_sensors: 5        # BACK, RUA, RLA, LUA, LLA (Body-worn IMUs)
+    num_channels: 45      # 5センサー × 9チャンネル (ACC:3 + GYRO:3 + MAG:3)
+    original_sampling_rate: 30  # Hz (元データ)
+    # リサンプリング不要
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR
