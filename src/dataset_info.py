@@ -162,6 +162,23 @@ DATASETS = {
             11: 'Cycling Standing Inactive' # label=140 -> 11 (not in sample, but in spec)
         },
     },
+    "LARA": {
+        "sensor_list": ["LeftArm", "LeftLeg", "Neck", "RightArm", "RightLeg"],
+        "modalities": ["ACC", "GYRO"],  # 加速度センサー（3軸） + ジャイロスコープ（3軸）
+        "n_classes": 8,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 100,  # Hz
+        "scale_factor": None,  # 既にG単位なので変換不要
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Stationary',
+            1: 'GaitCycle',
+            2: 'Step',
+            3: 'Upwards',
+            4: 'Centred',
+            5: 'Downwards',
+            6: 'TorsoRotation',
+            7: 'OtherMotion'
     "REALDISP": {
         "sensor_list": ["LeftCalf", "LeftThigh", "RightCalf", "RightThigh", "Back",
                        "LeftLowerArm", "LeftUpperArm", "RightLowerArm", "RightUpperArm"],
