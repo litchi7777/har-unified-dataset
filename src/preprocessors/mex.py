@@ -107,7 +107,8 @@ class MexPreprocessor(BasePreprocessor):
         extract_archive(zip_path, self.raw_data_path)
 
         # 一時ファイルのクリーンアップ
-        cleanup_temp_files([zip_path])
+        if zip_path.exists():
+            zip_path.unlink()
 
         logger.info(f"Dataset downloaded and extracted to {dataset_path}")
 
