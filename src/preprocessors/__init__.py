@@ -95,6 +95,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .realworld import RealWorldPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',

@@ -19,6 +19,7 @@ Human Activity Recognition (HAR) データセットの統合前処理・可視�
 | **FORTHTRACE** | 15 | LeftWrist, RightWrist, Torso, RightThigh, LeftAnkle (5箇所) | Shimmer IMU (ACC, GYRO, MAG) | 16 | 51.2Hz → 30Hz | 姿勢遷移含む詳細活動認識 |
 | **HAR70+** | 18 | LowerBack, RightThigh (2箇所) | Axivity AX3 (ACC) | 7 | 50Hz → 30Hz | 高齢者（70-95歳）特化 |
 | **HARTH** | 22 | LowerBack, RightThigh (2箇所) | Axivity AX3 (ACC) | 12 | 50Hz → 30Hz | 自由生活環境、サイクリング含む |
+| **REALWORLD** | 15 | Chest, Forearm, Head, Shin, Thigh, UpperArm, Waist (7箇所) | IMU (ACC, GYRO, MAG) | 8 | 50Hz → 30Hz | 実環境活動認識、全身センサー |
 
 ## ディレクトリ構成
 
@@ -38,7 +39,9 @@ har-unified-dataset/
 │   │   ├── openpack.py        # OPENPACK前処理
 │   │   ├── nhanes_pax.py      # NHANES前処理
 │   │   ├── forthtrace.py      # FORTHTRACE前処理
-│   │   └── har70plus.py       # HAR70+前処理
+│   │   ├── har70plus.py       # HAR70+前処理
+│   │   ├── harth.py           # HARTH前処理
+│   │   └── realworld.py       # REALWORLD前処理
 │   └── visualization/         # 可視化ツール
 │       └── visualize_data.py
 ├── configs/
@@ -149,6 +152,7 @@ data/processed/forthtrace/
 | FORTHTRACE | 9.8 (m/s²→G) | 51.2Hz | 30Hz | 150 (5秒) | 姿勢遷移ラベル含む |
 | HAR70+ | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 高齢者特化、加速度のみ |
 | HARTH | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 自由生活環境、サイクリング含む |
+| REALWORLD | なし（要確認） | 50Hz | 30Hz | 150 (5秒) | 実環境活動、7箇所センサー |
 
 **共通仕様:**
 - **ウィンドウサイズ**: 5秒（全データセット30Hzに統一後、150サンプル）
@@ -192,3 +196,4 @@ git submodule update --init --recursive
 - **FORTHTRACE**: FORTH-TRACE Dataset - Human Activity Recognition with Multi-sensor Data (https://zenodo.org/records/841301)
 - **HAR70+**: HAR70+ Dataset - Human Activity Recognition for Older Adults (UCI ML Repository, Dataset #780)
 - **HARTH**: HARTH Dataset - Human Activity Recognition Trondheim Dataset (UCI ML Repository, Dataset #779)
+- **REALWORLD**: Sztyler, T., & Stuckenschmidt, H. (2016). On-body localization of wearable devices: An investigation of position-aware activity recognition. In IEEE International Conference on Pervasive Computing and Communications (PerCom). (https://www.uni-mannheim.de/dws/research/projects/activity-recognition/dataset/dataset-realworld/)
