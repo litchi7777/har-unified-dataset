@@ -86,6 +86,23 @@ DATASETS = {
             8: 'Close', 9: 'Other'
         },
     },
+    "FORTHTRACE": {
+        "sensor_list": ["LeftWrist", "RightWrist", "Torso", "RightThigh", "LeftAnkle"],
+        "modalities": ["ACC", "GYRO", "MAG"],
+        "n_classes": 16,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 51.2,  # Hz
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Stand', 1: 'Sit', 2: 'Sit and Talk', 3: 'Walk',
+            4: 'Walk and Talk', 5: 'Climb Stairs', 6: 'Climb Stairs and Talk',
+            7: 'Stand -> Sit', 8: 'Sit -> Stand', 9: 'Stand -> Sit and Talk',
+            10: 'Sit and Talk -> Stand', 11: 'Stand -> Walk', 12: 'Walk -> Stand',
+            13: 'Stand -> Climb Stairs', 14: 'Climb Stairs -> Walk',
+            15: 'Climb Stairs and Talk -> Walk and Talk'
+        },
+    },
 }
 
 

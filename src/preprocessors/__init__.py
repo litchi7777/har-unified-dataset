@@ -80,6 +80,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .forthtrace import ForthtracePreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',

@@ -94,12 +94,12 @@ datasets:
     # データパス
     raw_data_path: data/raw
     processed_data_path: data/processed
-    
+
     # 処理パラメータ
     window_size: 5        # ウィンドウサイズ（秒）
     sampling_rate: 80     # サンプリングレート（Hz）
     std_threshold: 0.02   # アクティビティ判定用標準偏差閾値
-    
+
     # ユーザーID管理
     start_id: 62161       # 開始ユーザーID (PAX-G)
     end_id: 75557         # 終了ユーザーID (PAX-H含む全ユーザー: 約13000人)
@@ -107,18 +107,39 @@ datasets:
     discover_users: false  # ユーザーID自動発見モード（IDに抜けがあるため推奨）
     discovery_batch_size: 100  # 発見モード時のバッチサイズ
     batch_size: 100       # 処理バッチサイズ
-    
+
     # 並列処理設定
     parallel: false       # 1ファイルずつ順次処理
     workers: 4            # 並列ワーカー数（parallelがtrueの場合のみ使用）
-    
+
     # ダウンロード設定
     max_retries: 3        # 最大リトライ回数
     retry_delay: 5        # リトライ間隔（秒）
-    
+
     # データセット情報（参考用）
     num_channels: 3       # X, Y, Z加速度
     original_sampling_rate: 80  # Hz
+
+  # FORTHTRACE (FORTH-TRACE) Dataset
+  forthtrace:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は51.2Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 16
+    num_subjects: 15
+    num_sensors: 5
+    num_channels: 9       # 3軸 × 3モダリティ (ACC, GYRO, MAG)
+    original_sampling_rate: 51.2  # Hz (元データ)
+    # sampling_rateは30Hzにリサンプリングされる
 
 # ロギング設定
 logging:
