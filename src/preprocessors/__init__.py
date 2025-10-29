@@ -85,6 +85,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .har70plus import Har70plusPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',

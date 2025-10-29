@@ -103,6 +103,24 @@ DATASETS = {
             15: 'Climb Stairs and Talk -> Walk and Talk'
         },
     },
+    "HAR70PLUS": {
+        "sensor_list": ["LowerBack", "RightThigh"],
+        "modalities": ["ACC"],  # 加速度センサーのみ（3軸）
+        "n_classes": 7,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 50,  # Hz
+        "scale_factor": None,  # 既にG単位なので変換不要
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Walking',       # label=1 -> 0
+            1: 'Shuffling',     # label=3 -> 1
+            2: 'Stairs Up',     # label=4 -> 2
+            3: 'Stairs Down',   # label=5 -> 3
+            4: 'Standing',      # label=6 -> 4
+            5: 'Sitting',       # label=7 -> 5
+            6: 'Lying'          # label=8 -> 6
+        },
+    },
 }
 
 

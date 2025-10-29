@@ -141,6 +141,27 @@ datasets:
     original_sampling_rate: 51.2  # Hz (元データ)
     # sampling_rateは30Hzにリサンプリングされる
 
+  # HAR70+ (Human Activity Recognition for Older Adults) Dataset
+  har70plus:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は50Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 7     # Walking, Shuffling, Stairs Up/Down, Standing, Sitting, Lying
+    num_subjects: 18      # 70-95歳の高齢者
+    num_sensors: 2        # LowerBack, RightThigh
+    num_channels: 6       # 2センサー × 3軸加速度
+    original_sampling_rate: 50  # Hz (元データ)
+    # sampling_rateは30Hzにリサンプリングされる
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR
