@@ -95,6 +95,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .realdisp import RealDispPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',
