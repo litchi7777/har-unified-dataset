@@ -6,6 +6,8 @@ Human Activity Recognition (HAR) データセットの統合前処理・可視�
 
 複数のHARデータセットを統一フォーマットで前処理し、可視化するためのツール群です。
 
+**📘 新しいデータセットを追加する場合**: [ADDING_NEW_DATASET.md](ADDING_NEW_DATASET.md)を参照してください。
+
 ## サポートデータセット
 
 - **DSADS** (Daily and Sports Activities Dataset)
