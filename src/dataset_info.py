@@ -121,6 +121,29 @@ DATASETS = {
             6: 'Lying'          # label=8 -> 6
         },
     },
+    "HARTH": {
+        "sensor_list": ["LowerBack", "RightThigh"],
+        "modalities": ["ACC"],  # 加速度センサーのみ（3軸）
+        "n_classes": 12,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 50,  # Hz
+        "scale_factor": None,  # 既にG単位なので変換不要
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Walking',                   # label=1 -> 0
+            1: 'Running',                   # label=2 -> 1 (not in sample, but in spec)
+            2: 'Shuffling',                 # label=3 -> 2
+            3: 'Stairs Up',                 # label=4 -> 3
+            4: 'Stairs Down',               # label=5 -> 4
+            5: 'Standing',                  # label=6 -> 5
+            6: 'Sitting',                   # label=7 -> 6
+            7: 'Lying',                     # label=8 -> 7
+            8: 'Cycling Seated',            # label=13 -> 8
+            9: 'Cycling Standing',          # label=14 -> 9
+            10: 'Cycling Seated Inactive',  # label=130 -> 10
+            11: 'Cycling Standing Inactive' # label=140 -> 11 (not in sample, but in spec)
+        },
+    },
 }
 
 

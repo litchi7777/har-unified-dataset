@@ -90,6 +90,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .harth import HarthPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',
