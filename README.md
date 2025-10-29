@@ -10,11 +10,14 @@ Human Activity Recognition (HAR) データセットの統合前処理・可視�
 
 ## サポートデータセット
 
-- **DSADS** (Daily and Sports Activities Dataset)
-- **MHEALTH** (Mobile Health Dataset)
-- **OPENPACK** (OpenPack Challenge Dataset)
-- **PAMAP2** (Physical Activity Monitoring Dataset)
-- **REALWORLD** (Realworld HAR Dataset)
+| データセット | 被験者数 | センサー数 | 活動クラス数 | サンプリングレート | 特徴 |
+|------------|---------|-----------|------------|-----------------|------|
+| **DSADS** | 8 | 5 | 19 | 25Hz → 30Hz | 日常・スポーツ活動 |
+| **MHEALTH** | 10 | 3 | 12 | 50Hz → 30Hz | 健康モニタリング、ECGセンサー含む |
+| **OPENPACK** | 10 | 4 | 10 | 30Hz | 物流作業、クォータニオン含む |
+| **NHANES** | ~13,000 | 1 | 2 | 80Hz | 大規模健康調査、活動/非活動分類 |
+| **FORTHTRACE** | 15 | 5 | 16 | 51.2Hz → 30Hz | 姿勢遷移を含む詳細な活動認識 |
+| **HAR70+** | 18 | 2 | 7 | 50Hz → 30Hz | 高齢者（70-95歳）向け活動認識 |
 
 ## ディレクトリ構成
 
@@ -22,23 +25,28 @@ Human Activity Recognition (HAR) データセットの統合前処理・可視�
 har-unified-dataset/
 ├── preprocess.py              # 前処理のエントリーポイント
 ├── visualize_server.py        # データ可視化Webサーバー
+├── ADDING_NEW_DATASET.md      # 新規データセット追加ガイド
 ├── src/
 │   ├── dataset_info.py        # データセットメタデータ
 │   ├── preprocessors/         # データセット別前処理ロジック
-│   │   ├── base.py
-│   │   ├── common.py
-│   │   ├── utils.py
-│   │   ├── dsads.py
-│   │   ├── mhealth.py
-│   │   └── openpack.py
+│   │   ├── base.py            # ベースクラス
+│   │   ├── common.py          # 共通ユーティリティ（ダウンロード等）
+│   │   ├── utils.py           # データ処理ユーティリティ
+│   │   ├── dsads.py           # DSADS前処理
+│   │   ├── mhealth.py         # MHEALTH前処理
+│   │   ├── openpack.py        # OPENPACK前処理
+│   │   ├── nhanes_pax.py      # NHANES前処理
+│   │   ├── forthtrace.py      # FORTHTRACE前処理
+│   │   └── har70plus.py       # HAR70+前処理
 │   └── visualization/         # 可視化ツール
 │       └── visualize_data.py
-├── configs/                   # 前処理設定ファイル
+├── configs/
+│   └── preprocess.yaml        # 前処理設定ファイル
 ├── data/
 │   ├── raw/                   # 生データ（.gitignoreで除外）
 │   └── processed/             # 前処理済みデータ（.gitignoreで除外）
 ├── outputs/                   # 可視化結果の出力先
-└── tests/                     # テストコード
+└── __test__/                  # テストコード
 
 ```
 
@@ -95,23 +103,57 @@ python visualize_server.py --port 8080
 
 ### 処理済みデータの構造
 
+統一された階層構造でデータを管理：
+
 ```
 data/processed/{dataset_name}/
-├── USER00001/
-│   ├── {sensor_name}/
-│   │   ├── X.npy      # センサーデータ (n_samples, n_channels, sequence_length)
-│   │   └── Y.npy      # ラベル (n_samples,)
+├── USER00001/                    # 1-indexed ユーザーID
+│   ├── {sensor_name}/            # センサー位置（例: Chest, LowerBack等）
+│   │   ├── {modality}/           # モダリティ（ACC, GYRO, MAG, ECG等）
+│   │   │   ├── X.npy             # センサーデータ (n_windows, n_channels, window_size)
+│   │   │   └── Y.npy             # ラベル (n_windows,)
+│   └── {sensor_name}/
+│       └── {modality}/
+│           ├── X.npy
+│           └── Y.npy
 ├── USER00002/
+│   └── ...
+└── metadata.json                 # データセット統計情報
+```
+
+**例（FORTHTRACE）:**
+```
+data/processed/forthtrace/
+├── USER00001/
+│   ├── LeftWrist/
+│   │   ├── ACC/
+│   │   │   ├── X.npy  # (N, 3, 150) - 3軸加速度、150サンプル/ウィンドウ
+│   │   │   └── Y.npy  # (N,) - 活動ラベル
+│   │   ├── GYRO/
+│   │   │   └── ...
+│   │   └── MAG/
+│   │       └── ...
+│   ├── RightWrist/
 │   └── ...
 ```
 
-ユーザー情報はディレクトリ構造で管理されます。
-
 ### データセット固有の処理
 
-- **加速度センサーの単位統一**: DSADS、MHEALTHは m/s² → G に変換（scale_factor: 9.8）
-- **リサンプリング**: 各データセットを30Hzに統一（OPENPACKは元々30Hzのため不要）
-- **データ型最適化**: float16で保存（メモリ効率化）
+| データセット | scale_factor | 元レート | 処理後レート | ウィンドウサイズ | 特記事項 |
+|------------|-------------|---------|------------|--------------|---------|
+| DSADS | 9.8 (m/s²→G) | 25Hz | 30Hz | 150 (5秒) | 全センサー同一モダリティ |
+| MHEALTH | 9.8 (m/s²→G) | 50Hz | 30Hz | 150 (5秒) | ECGセンサー含む |
+| OPENPACK | なし | 30Hz | 30Hz | 150 (5秒) | クォータニオン（4次元）含む |
+| NHANES | なし（G単位） | 80Hz | 80Hz | 400 (5秒) | 単一腰部センサー、大規模 |
+| FORTHTRACE | 9.8 (m/s²→G) | 51.2Hz | 30Hz | 150 (5秒) | 姿勢遷移ラベル含む |
+| HAR70+ | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 高齢者特化、加速度のみ |
+
+**共通仕様:**
+- **ウィンドウサイズ**: 5秒（30Hzデータは150サンプル、80Hzデータは400サンプル）
+- **ストライド**: 1秒（80%オーバーラップ）
+- **データ型**: float16（メモリ効率化）
+- **ユーザーID**: 1-indexed（USER00001から開始）
+- **ラベル**: 0-indexed（活動クラス0から開始、未定義クラスは-1）
 
 ## テスト
 
@@ -140,6 +182,10 @@ git submodule update --init --recursive
 
 ## 参考文献
 
-- DSADS: Barshan, B., & Yüksek, M. C. (2014). Recognizing daily and sports activities...
-- MHEALTH: Banos, O., et al. (2014). mHealthDroid: a novel framework for agile development...
-- OPENPACK: OpenPack Challenge (https://open-pack.github.io/)
+### データセット
+- **DSADS**: Barshan, B., & Yüksek, M. C. (2014). Recognizing daily and sports activities in two open source machine learning environments using body-worn sensor units. *The Computer Journal*, 57(11), 1649-1667.
+- **MHEALTH**: Banos, O., et al. (2014). mHealthDroid: a novel framework for agile development of mobile health applications. *Ambient Assisted Living and Daily Activities*, 91-98.
+- **OPENPACK**: OpenPack Challenge - A Large-scale Benchmark for Activity Recognition in Industrial Settings (https://open-pack.github.io/)
+- **NHANES**: National Health and Nutrition Examination Survey (CDC, 2011-2014)
+- **FORTHTRACE**: FORTH-TRACE Dataset - Human Activity Recognition with Multi-sensor Data (https://zenodo.org/records/841301)
+- **HAR70+**: HAR70+ Dataset - Human Activity Recognition for Older Adults (UCI ML Repository, Dataset #780)
