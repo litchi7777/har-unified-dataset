@@ -88,36 +88,23 @@ class RealDispPreprocessor(BasePreprocessor):
     def download_dataset(self) -> None:
         """
         REALDISPデータセットをUCI MLリポジトリからダウンロード
+
+        Note: REALDISPデータセットは手動でダウンロードする必要があります。
+        URL: https://archive.ics.uci.edu/dataset/305/realdisp+activity+recognition+dataset
+
+        ダウンロード後、以下の構造で配置してください:
+        data/raw/realdisp/*.log
         """
-        try:
-            from ucimlrepo import fetch_ucirepo
+        logger.info("REALDISP dataset download:")
+        logger.info("  URL: https://archive.ics.uci.edu/dataset/305/realdisp+activity+recognition+dataset")
+        logger.info("  Please download manually and extract to data/raw/realdisp/")
+        logger.info("  Expected structure: data/raw/realdisp/*.log")
 
-            logger.info("Downloading REALDISP dataset from UCI ML Repository...")
-
-            # データセットのダウンロード (ID=305)
-            realdisp = fetch_ucirepo(id=305)
-
-            # ダウンロード先ディレクトリの作成
-            raw_path = self.raw_data_path / self.dataset_name
-            raw_path.mkdir(parents=True, exist_ok=True)
-
-            logger.info(f"Dataset downloaded successfully to {raw_path}")
-
-            # メタデータの保存
-            metadata = realdisp.metadata
-            variables = realdisp.variables
-
-            logger.info(f"Dataset info: {metadata}")
-            logger.info(f"Variables: {variables}")
-
-        except ImportError:
-            logger.error(
-                "ucimlrepo package not found. Install it with: pip install ucimlrepo"
-            )
-            raise
-        except Exception as e:
-            logger.error(f"Error downloading REALDISP dataset: {e}")
-            raise
+        raise NotImplementedError(
+            "REALDISP dataset must be downloaded manually.\n"
+            "Visit: https://archive.ics.uci.edu/dataset/305/realdisp+activity+recognition+dataset\n"
+            "Extract to: data/raw/realdisp/"
+        )
 
     def _estimate_sampling_rate(self, timestamps: np.ndarray) -> float:
         """
