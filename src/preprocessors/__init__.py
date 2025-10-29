@@ -99,6 +99,33 @@ try:
     from .lara import LaraPreprocessor
 except ImportError:
     pass
+  
+try:
+    from .realdisp import RealDispPreprocessor
+except ImportError:
+    pass
+
+try:
+    from .harth import HarthPreprocessor
+except ImportError:
+    pass
+
+try:
+    from .mex import MexPreprocessor
+except ImportError:
+    pass
+  
+    
+try:
+    from .pamap2 import PAMAP2Preprocessor
+
+except ImportError:
+    pass
+  
+try:
+    from .opportunity import OpportunityPreprocessor
+except ImportError:
+    pass
 
 
 __all__ = [
