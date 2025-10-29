@@ -102,13 +102,29 @@ class MexPreprocessor(BasePreprocessor):
         zip_path = self.raw_data_path / "mex.zip"
         download_file(MEX_URL, zip_path)
 
-        # ZIPファイルの解凍
-        logger.info(f"Extracting {zip_path}")
-        extract_archive(zip_path, self.raw_data_path)
+        # ZIPファイルの解凍（一時ディレクトリに）
+        temp_dir = self.raw_data_path / "mex_temp"
+        logger.info(f"Extracting {zip_path} to {temp_dir}")
+        extract_archive(zip_path, temp_dir)
+
+        # ネストされたdata.zipを確認して解凍
+        nested_zip = temp_dir / "data.zip"
+        if nested_zip.exists():
+            logger.info(f"Found nested data.zip, extracting to {dataset_path}")
+            dataset_path.mkdir(parents=True, exist_ok=True)
+            extract_archive(nested_zip, dataset_path)
+            nested_zip.unlink()
+        else:
+            # ネストされていない場合は、temp_dirをdataset_pathにリネーム
+            if temp_dir.exists():
+                temp_dir.rename(dataset_path)
 
         # 一時ファイルのクリーンアップ
         if zip_path.exists():
             zip_path.unlink()
+        if temp_dir.exists():
+            import shutil
+            shutil.rmtree(temp_dir)
 
         logger.info(f"Dataset downloaded and extracted to {dataset_path}")
 
@@ -128,12 +144,12 @@ class MexPreprocessor(BasePreprocessor):
                 data: (num_samples, 6) の配列 [wrist_xyz, thigh_xyz]
                 labels: (num_samples,) の配列（0-indexed）
         """
-        raw_path = self.raw_data_path / self.dataset_name / "MEx"
+        raw_path = self.raw_data_path / self.dataset_name
 
         if not raw_path.exists():
             raise FileNotFoundError(
                 f"MEx raw data not found at {raw_path}\n"
-                "Expected structure: data/raw/mex/MEx/acw/, data/raw/mex/MEx/act/"
+                "Expected structure: data/raw/mex/acw/, data/raw/mex/act/"
             )
 
         acw_path = raw_path / "acw"  # wrist accelerometer
@@ -148,10 +164,11 @@ class MexPreprocessor(BasePreprocessor):
         # 被験者ごとにデータを格納
         result = {}
 
-        # 被験者IDは1-30
+        # 被験者IDは1-30（フォルダ名は01, 02, ... 30で0パディング）
         for subject_id in range(1, 31):
-            subject_acw_dir = acw_path / str(subject_id)
-            subject_act_dir = act_path / str(subject_id)
+            subject_str = f"{subject_id:02d}"  # 01, 02, ... 30
+            subject_acw_dir = acw_path / subject_str
+            subject_act_dir = act_path / subject_str
 
             if not subject_acw_dir.exists() or not subject_act_dir.exists():
                 logger.warning(f"Subject {subject_id} folders not found, skipping")
@@ -162,32 +179,33 @@ class MexPreprocessor(BasePreprocessor):
             all_thigh_data = []
             all_labels = []
 
-            # エクササイズファイルをロード (1-8)
-            # エクササイズ4は2ファイル（4L.txt, 4R.txt）、それ以外は {id}.txt
+            # エクササイズファイルをロード (1-7)
+            # ファイル名形式: {subject_id}_act_{ex_id}.csv と {subject_id}_acw_{ex_id}.csv
+            # エクササイズ4は2ファイル（04_act_1.csv, 04_act_2.csv）
             exercise_files = []
             for ex_id in range(1, 8):
                 if ex_id == 4:
-                    # エクササイズ4は左右2回
-                    exercise_files.append((f"{ex_id}L.txt", ex_id - 1))  # 0-indexed
-                    exercise_files.append((f"{ex_id}R.txt", ex_id - 1))
+                    # エクササイズ4は2回実施（_1と_2）
+                    exercise_files.append((f"{ex_id:02d}_act_1.csv", f"{ex_id:02d}_acw_1.csv", ex_id - 1))
+                    exercise_files.append((f"{ex_id:02d}_act_2.csv", f"{ex_id:02d}_acw_2.csv", ex_id - 1))
                 else:
-                    exercise_files.append((f"{ex_id}.txt", ex_id - 1))  # 0-indexed
+                    exercise_files.append((f"{ex_id:02d}_act_1.csv", f"{ex_id:02d}_acw_1.csv", ex_id - 1))
 
-            for filename, label in exercise_files:
-                wrist_file = subject_acw_dir / filename
-                thigh_file = subject_act_dir / filename
+            for thigh_filename, wrist_filename, label in exercise_files:
+                wrist_file = subject_acw_dir / wrist_filename
+                thigh_file = subject_act_dir / thigh_filename
 
                 if not wrist_file.exists() or not thigh_file.exists():
-                    logger.debug(f"Subject {subject_id}, file {filename} not found, skipping")
+                    logger.debug(f"Subject {subject_id}, files {wrist_filename}/{thigh_filename} not found, skipping")
                     continue
 
                 try:
-                    # 手首加速度データ読み込み
-                    wrist_df = pd.read_csv(wrist_file, sep=' ', header=None, names=['timestamp', 'x', 'y', 'z'])
+                    # 手首加速度データ読み込み（カンマ区切り、タイムスタンプ,x,y,z）
+                    wrist_df = pd.read_csv(wrist_file, header=None, names=['timestamp', 'x', 'y', 'z'])
                     wrist_data = wrist_df[['x', 'y', 'z']].values.astype(np.float32)
 
-                    # 太もも加速度データ読み込み
-                    thigh_df = pd.read_csv(thigh_file, sep=' ', header=None, names=['timestamp', 'x', 'y', 'z'])
+                    # 太もも加速度データ読み込み（カンマ区切り、タイムスタンプ,x,y,z）
+                    thigh_df = pd.read_csv(thigh_file, header=None, names=['timestamp', 'x', 'y', 'z'])
                     thigh_data = thigh_df[['x', 'y', 'z']].values.astype(np.float32)
 
                     # サンプル数を揃える（短い方に合わせる）
