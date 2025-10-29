@@ -15,7 +15,7 @@ Human Activity Recognition (HAR) データセットの統合前処理・可視�
 | **DSADS** | 8 | Torso, RightArm, LeftArm, RightLeg, LeftLeg (5箇所) | IMU (ACC, GYRO, MAG) | 19 | 25Hz → 30Hz | 日常・スポーツ活動、全身センサー |
 | **MHEALTH** | 10 | Chest, LeftAnkle, RightWrist (3箇所) | IMU (ACC, GYRO, MAG) + ECG | 12 | 50Hz → 30Hz | 健康モニタリング、心電図含む |
 | **OPENPACK** | 10 | atr01-04 (4箇所、装着位置は被験者依存) | IMU (ACC, GYRO, QUAT) | 10 | 30Hz | 物流作業、クォータニオン含む |
-| **NHANES** | ~13,000 | Waist (1箇所) | ACC | 2 | 80Hz | 大規模健康調査、活動/非活動 |
+| **NHANES** | ~13,000 | Waist (1箇所) | ACC | 2 | 80Hz → 30Hz | 大規模健康調査、活動/非活動 |
 | **FORTHTRACE** | 15 | LeftWrist, RightWrist, Torso, RightThigh, LeftAnkle (5箇所) | Shimmer IMU (ACC, GYRO, MAG) | 16 | 51.2Hz → 30Hz | 姿勢遷移含む詳細活動認識 |
 | **HAR70+** | 18 | LowerBack, RightThigh (2箇所) | Axivity AX3 (ACC) | 7 | 50Hz → 30Hz | 高齢者（70-95歳）特化 |
 | **HARTH** | 22 | LowerBack, RightThigh (2箇所) | Axivity AX3 (ACC) | 12 | 50Hz → 30Hz | 自由生活環境、サイクリング含む |
@@ -145,14 +145,14 @@ data/processed/forthtrace/
 | DSADS | 9.8 (m/s²→G) | 25Hz | 30Hz | 150 (5秒) | 全センサー同一モダリティ |
 | MHEALTH | 9.8 (m/s²→G) | 50Hz | 30Hz | 150 (5秒) | ECGセンサー含む |
 | OPENPACK | なし | 30Hz | 30Hz | 150 (5秒) | クォータニオン（4次元）含む |
-| NHANES | なし（G単位） | 80Hz | 80Hz | 400 (5秒) | 単一腰部センサー、大規模 |
+| NHANES | なし（G単位） | 80Hz | 30Hz | 150 (5秒) | 単一腰部センサー、大規模 |
 | FORTHTRACE | 9.8 (m/s²→G) | 51.2Hz | 30Hz | 150 (5秒) | 姿勢遷移ラベル含む |
 | HAR70+ | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 高齢者特化、加速度のみ |
 | HARTH | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 自由生活環境、サイクリング含む |
 
 **共通仕様:**
-- **ウィンドウサイズ**: 5秒（30Hzデータは150サンプル、80Hzデータは400サンプル）
-- **ストライド**: 1秒（80%オーバーラップ）
+- **ウィンドウサイズ**: 5秒（全データセット30Hzに統一後、150サンプル）
+- **ストライド**: 1秒（80%オーバーラップ、30サンプル）
 - **データ型**: float16（メモリ効率化）
 - **ユーザーID**: 1-indexed（USER00001から開始）
 - **ラベル**: 0-indexed（活動クラス0から開始、未定義クラスは-1）

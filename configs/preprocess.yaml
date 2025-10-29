@@ -97,7 +97,8 @@ datasets:
 
     # 処理パラメータ
     window_size: 5        # ウィンドウサイズ（秒）
-    sampling_rate: 80     # サンプリングレート（Hz）
+    sampling_rate: 80     # サンプリングレート（Hz）- 元のサンプリングレート
+    target_sampling_rate: 30  # Hz (元は80Hzからリサンプリング)
     std_threshold: 0.02   # アクティビティ判定用標準偏差閾値
 
     # ユーザーID管理
