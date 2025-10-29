@@ -181,6 +181,15 @@ class PAMAP2Preprocessor(BasePreprocessor):
         """
         logger.info(f"Organizing PAMAP2 data from {extracted_path} to {target_path}")
 
+        # ネストされたZIPファイルを確認して解凍
+        nested_zip = extracted_path / "PAMAP2_Dataset.zip"
+        if nested_zip.exists():
+            logger.info(f"Found nested ZIP file: {nested_zip}")
+            logger.info("Extracting nested archive...")
+            extract_archive(nested_zip, extracted_path, desc='Extracting nested PAMAP2')
+            # ネストされたZIPファイルを削除
+            nested_zip.unlink()
+
         # 解凍されたデータのルートを見つける
         # PAMAP2データは "PAMAP2_Dataset/Protocol" と "PAMAP2_Dataset/Optional" に分かれている
         possible_roots = [
