@@ -200,8 +200,8 @@ datasets:
     # データセット情報（参考用）
     num_activities: 17    # Mid-level gestures (Open/Close doors, drawers, etc.)
     num_subjects: 4       # S1-S4
-    num_sensors: 5        # BACK, RUA, RLA, LUA, LLA (Body-worn IMUs)
-    num_channels: 45      # 5センサー × 9チャンネル (ACC:3 + GYRO:3 + MAG:3)
+    num_sensors: 8        # 7 IMUs (BACK, RUA, RLA, LUA, LLA, L_SHOE, R_SHOE) + ACC_SENSORS group
+    num_channels: 113     # 全body-wornセンサー（IMU 7×13ch + 加速度センサー 22ch）
     original_sampling_rate: 30  # Hz (元データ)
     # リサンプリング不要
 

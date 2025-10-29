@@ -4,7 +4,7 @@ OPPORTUNITY (OPPORTUNITY Activity Recognition Dataset) 前処理
 OPPORTUNITY データセット:
 - 17種類のmid-level gestures (+ Null class)
 - 4人の被験者
-- 5つのIMUセンサー（Body-worn）
+- 113チャンネルのBody-wornセンサー（7つのIMU + 12個の加速度センサー）
 - サンプリングレート: 30Hz
 """
 
@@ -36,51 +36,111 @@ logger = logging.getLogger(__name__)
 OPPORTUNITY_URL = "https://archive.ics.uci.edu/static/public/226/opportunity+activity+recognition.zip"
 
 
-# センサー列のマッピング（0-indexed）
-# Body-worn IMU sensors: BACK, RUA (Right Upper Arm), RLA (Right Lower Arm),
-#                        LUA (Left Upper Arm), LLA (Left Lower Arm)
-# 各IMUは17チャンネル: ACC(3), GYRO(3), MAG(3), QUAT(4), other(4)
-SENSOR_COLUMNS = {
+# 113センサーチャンネルを選択（DeepConvLSTMの実装に基づく）
+# 元データの列0はタイムスタンプ、列1-133がbody-wornセンサー、列134-242がオブジェクト/アンビエントセンサー
+# 列243がmid-level gestureラベル、列244がlocomotionラベル
+def select_columns_opp(data):
+    """
+    OPPORTUNITYチャレンジで使用される113列を選択
+
+    - 列46-49, 59-62, 72-75, 85-88, 98-101: IMUのQuaternion（削除）
+    - 列134-242: オブジェクト/アンビエントセンサー（削除）
+    - 列244-248: その他（削除）
+
+    Args:
+        data: 元のデータ行列 (samples, 249)
+
+    Returns:
+        選択された113列のセンサーデータ (samples, 113)
+    """
+    features_delete = np.arange(46, 50)
+    features_delete = np.concatenate([features_delete, np.arange(59, 63)])
+    features_delete = np.concatenate([features_delete, np.arange(72, 76)])
+    features_delete = np.concatenate([features_delete, np.arange(85, 89)])
+    features_delete = np.concatenate([features_delete, np.arange(98, 102)])
+    features_delete = np.concatenate([features_delete, np.arange(134, 243)])
+    features_delete = np.concatenate([features_delete, np.arange(244, 249)])
+    return np.delete(data, features_delete, 1)
+
+
+# センサーチャンネルのグループ定義（113チャンネル）
+# 各IMUは17チャンネル - 4チャンネル(QUAT) = 13チャンネル
+# 列番号は選択後の0-indexedインデックス
+SENSOR_GROUPS = {
     'BACK': {
-        'start': 1,   # column 1 in file (0-indexed in numpy after loading)
-        'ACC': (1, 4),     # columns 1-3 (ACC X, Y, Z)
-        'GYRO': (4, 7),    # columns 4-6 (GYRO X, Y, Z)
-        'MAG': (7, 10),    # columns 7-9 (MAG X, Y, Z)
+        'channels': list(range(0, 13)),  # 13チャンネル
+        'modalities': {
+            'ACC': list(range(0, 3)),    # 加速度 X, Y, Z
+            'GYRO': list(range(3, 6)),   # ジャイロ X, Y, Z
+            'MAG': list(range(6, 9)),    # 地磁気 X, Y, Z
+        }
     },
-    'RUA': {
-        'start': 18,
-        'ACC': (18, 21),
-        'GYRO': (21, 24),
-        'MAG': (24, 27),
+    'RUA': {  # Right Upper Arm
+        'channels': list(range(13, 26)),
+        'modalities': {
+            'ACC': list(range(13, 16)),
+            'GYRO': list(range(16, 19)),
+            'MAG': list(range(19, 22)),
+        }
     },
-    'RLA': {
-        'start': 35,
-        'ACC': (35, 38),
-        'GYRO': (38, 41),
-        'MAG': (41, 44),
+    'RLA': {  # Right Lower Arm
+        'channels': list(range(26, 39)),
+        'modalities': {
+            'ACC': list(range(26, 29)),
+            'GYRO': list(range(29, 32)),
+            'MAG': list(range(32, 35)),
+        }
     },
-    'LUA': {
-        'start': 52,
-        'ACC': (52, 55),
-        'GYRO': (55, 58),
-        'MAG': (58, 61),
+    'LUA': {  # Left Upper Arm
+        'channels': list(range(39, 52)),
+        'modalities': {
+            'ACC': list(range(39, 42)),
+            'GYRO': list(range(42, 45)),
+            'MAG': list(range(45, 48)),
+        }
     },
-    'LLA': {
-        'start': 69,
-        'ACC': (69, 72),
-        'GYRO': (72, 75),
-        'MAG': (75, 78),
+    'LLA': {  # Left Lower Arm
+        'channels': list(range(52, 65)),
+        'modalities': {
+            'ACC': list(range(52, 55)),
+            'GYRO': list(range(55, 58)),
+            'MAG': list(range(58, 61)),
+        }
     },
+    'L_SHOE': {  # Left Shoe
+        'channels': list(range(65, 78)),
+        'modalities': {
+            'ACC': list(range(65, 68)),
+            'GYRO': list(range(68, 71)),
+            'MAG': list(range(71, 74)),
+        }
+    },
+    'R_SHOE': {  # Right Shoe
+        'channels': list(range(78, 91)),
+        'modalities': {
+            'ACC': list(range(78, 81)),
+            'GYRO': list(range(81, 84)),
+            'MAG': list(range(84, 87)),
+        }
+    },
+    # 残り22チャンネル（91-112）は12個の3D加速度センサー（各3チャンネル）
+    # 位置: HIP, RKN (Right Knee), LKNなど
+    'ACC_SENSORS': {
+        'channels': list(range(91, 113)),  # 22チャンネル（残りの加速度センサー）
+        'modalities': {
+            'ACC': list(range(91, 113)),  # 全て加速度センサー
+        }
+    }
 }
 
 # ラベル列（mid-level gestures）
-LABEL_COLUMN = 244  # column 244 (0-indexed: 243)
+LABEL_COLUMN = 243  # 元データでの列番号
 
 
 @register_preprocessor('opportunity')
 class OpportunityPreprocessor(BasePreprocessor):
     """
-    OPPORTUNITYデータセット用の前処理クラス
+    OPPORTUNITYデータセット用の前処理クラス（113チャンネル全センサー使用）
     """
 
     def __init__(self, config: Dict[str, Any]):
@@ -89,19 +149,15 @@ class OpportunityPreprocessor(BasePreprocessor):
         # OPPORTUNITY固有の設定
         self.num_activities = 17  # mid-level gestures
         self.num_subjects = 4
-        self.num_sensors = 5  # BACK, RUA, RLA, LUA, LLA
+        self.num_channels = 113  # 全body-wornセンサー
 
         # サンプリングレート
         self.original_sampling_rate = 30  # Hz (OPPORTUNITYのオリジナル)
         self.target_sampling_rate = config.get('target_sampling_rate', 30)  # Hz (目標)
 
-        # センサー名とチャンネルマッピング
-        self.sensor_names = ['BACK', 'RUA', 'RLA', 'LUA', 'LLA']
-        self.sensor_columns = SENSOR_COLUMNS
-
-        # モダリティ
-        self.modalities = ['ACC', 'GYRO', 'MAG']
-        self.channels_per_modality = 3
+        # センサーグループ
+        self.sensor_groups = SENSOR_GROUPS
+        self.sensor_names = list(SENSOR_GROUPS.keys())
 
         # 前処理パラメータ
         self.window_size = config.get('window_size', 150)  # 5秒 @ 30Hz
@@ -211,11 +267,11 @@ class OpportunityPreprocessor(BasePreprocessor):
 
         想定フォーマット:
         - data/raw/opportunity/S1-ADL1.dat, S1-ADL2.dat, ..., S1-Drill.dat
-        - 各ファイル: (samples, 250) のテキストファイル（スペース区切り）
+        - 各ファイル: (samples, 249) のテキストファイル（スペース区切り）
 
         Returns:
             person_data: {person_id: (data, labels)} の辞書
-                data: (num_samples, num_channels) の配列（選択されたセンサー列のみ）
+                data: (num_samples, 113) の配列（選択されたセンサー列）
                 labels: (num_samples,) の配列
         """
         raw_path = self.raw_data_path / self.dataset_name
@@ -250,7 +306,7 @@ class OpportunityPreprocessor(BasePreprocessor):
 
             for data_file in subject_files:
                 try:
-                    # データ読み込み（スペース区切り、NaNをnanに変換）
+                    # データ読み込み（スペース区切り）
                     data = np.loadtxt(data_file, dtype=np.float32)
 
                     if data.ndim == 1:
@@ -258,33 +314,49 @@ class OpportunityPreprocessor(BasePreprocessor):
 
                     logger.info(f"  Loaded {data_file.name}: {data.shape}")
 
-                    # ラベル抽出（mid-level gestures: column 244, 0-indexed: 243）
-                    if data.shape[1] <= LABEL_COLUMN - 1:
-                        logger.warning(f"  File {data_file.name} has insufficient columns: {data.shape[1]}")
-                        continue
+                    # 列選択（113チャンネルを抽出）
+                    selected_data = select_columns_opp(data)
 
-                    labels = data[:, LABEL_COLUMN - 1].astype(np.int32)
+                    # ラベル抽出（mid-level gestures: 選択後の列113、元は列243）
+                    # select_columns_oppは列0を保持し、列1-113がセンサー、列114がラベル
+                    labels = selected_data[:, 113].astype(np.int32)
 
-                    # ラベル変換: 0 -> -1 (Null class), その他は1から0-indexedに変換
-                    labels = np.where(labels == 0, -1, labels - 1)
+                    # センサーデータのみ抽出（列1-113）
+                    sensor_data = selected_data[:, 1:114]
 
-                    # 必要なセンサー列のみを抽出して結合
-                    sensor_data_list = []
-                    for sensor_name in self.sensor_names:
-                        for modality in self.modalities:
-                            col_start, col_end = self.sensor_columns[sensor_name][modality]
-                            # 0-indexed (列番号 - 1)
-                            sensor_modality_data = data[:, col_start - 1:col_end - 1]
-                            sensor_data_list.append(sensor_modality_data)
+                    # ラベル変換: 0 -> -1 (Null class), その他は調整
+                    # gestures label adjustment (DeepConvLSTMの実装に基づく)
+                    label_map = {
+                        0: -1,       # Null -> -1
+                        406516: 0,   # Open Door 1
+                        406517: 1,   # Open Door 2
+                        404516: 2,   # Close Door 1
+                        404517: 3,   # Close Door 2
+                        406520: 4,   # Open Fridge
+                        404520: 5,   # Close Fridge
+                        406505: 6,   # Open Dishwasher
+                        404505: 7,   # Close Dishwasher
+                        406519: 8,   # Open Drawer 1
+                        404519: 9,   # Close Drawer 1
+                        406511: 10,  # Open Drawer 2
+                        404511: 11,  # Close Drawer 2
+                        406508: 12,  # Open Drawer 3
+                        404508: 13,  # Close Drawer 3
+                        408512: 14,  # Clean Table
+                        407521: 15,  # Drink from Cup
+                        405506: 16,  # Toggle Switch
+                    }
 
-                    # 全センサー・モダリティを結合
-                    combined_data = np.hstack(sensor_data_list)  # (samples, 45) - 5 sensors × 3 modalities × 3 channels
+                    for old_label, new_label in label_map.items():
+                        labels[labels == old_label] = new_label
 
-                    person_data[person_id]['data'].append(combined_data)
+                    person_data[person_id]['data'].append(sensor_data)
                     person_data[person_id]['labels'].append(labels)
 
                 except Exception as e:
                     logger.error(f"Error loading {data_file}: {e}")
+                    import traceback
+                    traceback.print_exc()
                     continue
 
         # 各被験者のデータを結合
@@ -327,7 +399,7 @@ class OpportunityPreprocessor(BasePreprocessor):
 
     def extract_features(self, data: Dict[int, Tuple[np.ndarray, np.ndarray]]) -> Dict[int, Dict[str, Dict[str, np.ndarray]]]:
         """
-        特徴抽出（センサー×モダリティごとのウィンドウ化とスケーリング）
+        特徴抽出（センサーグループ×モダリティごとのウィンドウ化とスケーリング）
 
         Args:
             data: {person_id: (data, labels)} の辞書
@@ -342,15 +414,11 @@ class OpportunityPreprocessor(BasePreprocessor):
 
             processed[person_id] = {}
 
-            # データは既に (samples, 45) の形式
-            # 5 sensors × 3 modalities × 3 channels = 45 channels
-            channel_idx = 0
-
-            for sensor_name in self.sensor_names:
-                for modality_name in self.modalities:
-                    # 各センサー・モダリティの3チャンネルを抽出
-                    sensor_modality_data = person_data[:, channel_idx:channel_idx + 3]
-                    channel_idx += 3
+            # 各センサーグループについて処理
+            for sensor_name, sensor_info in self.sensor_groups.items():
+                for modality_name, modality_channels in sensor_info['modalities'].items():
+                    # 該当モダリティのチャンネルを抽出
+                    sensor_modality_data = person_data[:, modality_channels]
 
                     # スライディングウィンドウ適用
                     windowed_data, windowed_labels = create_sliding_windows(
@@ -361,14 +429,14 @@ class OpportunityPreprocessor(BasePreprocessor):
                         drop_last=False,
                         pad_last=True
                     )
-                    # windowed_data: (num_windows, window_size, 3)
+                    # windowed_data: (num_windows, window_size, num_channels)
 
                     # スケーリング適用（加速度のみ）
                     if modality_name == 'ACC' and self.scale_factor is not None:
                         windowed_data = windowed_data / self.scale_factor
                         logger.info(f"  Applied scale_factor={self.scale_factor} to {sensor_name}/{modality_name}")
 
-                    # 形状を変換: (num_windows, window_size, 3) -> (num_windows, 3, window_size)
+                    # 形状を変換: (num_windows, window_size, channels) -> (num_windows, channels, window_size)
                     windowed_data = np.transpose(windowed_data, (0, 2, 1))
 
                     # float16に変換
@@ -409,10 +477,8 @@ class OpportunityPreprocessor(BasePreprocessor):
         total_stats = {
             'dataset': self.dataset_name,
             'num_activities': self.num_activities,
-            'num_sensors': self.num_sensors,
-            'sensor_names': self.sensor_names,
-            'modalities': self.modalities,
-            'channels_per_modality': self.channels_per_modality,
+            'num_channels': self.num_channels,
+            'sensor_groups': list(self.sensor_groups.keys()),
             'original_sampling_rate': self.original_sampling_rate,
             'target_sampling_rate': self.target_sampling_rate,
             'window_size': self.window_size,
@@ -420,7 +486,6 @@ class OpportunityPreprocessor(BasePreprocessor):
             'normalization': 'none',  # 正規化なし（生データ保持）
             'scale_factor': self.scale_factor,  # スケーリング係数（ACCのみ適用）
             'data_dtype': 'float16',  # データ型
-            'data_shape': f'(num_windows, {self.channels_per_modality}, {self.window_size})',
             'users': {}
         }
 
@@ -436,7 +501,7 @@ class OpportunityPreprocessor(BasePreprocessor):
                 sensor_modality_path.mkdir(parents=True, exist_ok=True)
 
                 # X.npy, Y.npy を保存
-                X = arrays['X']  # (num_windows, 3, window_size)
+                X = arrays['X']  # (num_windows, channels, window_size)
                 Y = arrays['Y']  # (num_windows,)
 
                 np.save(sensor_modality_path / 'X.npy', X)

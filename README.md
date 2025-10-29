@@ -19,7 +19,7 @@ Human Activity Recognition (HAR) データセットの統合前処理・可視�
 | **FORTHTRACE** | 15 | LeftWrist, RightWrist, Torso, RightThigh, LeftAnkle (5箇所) | Shimmer IMU (ACC, GYRO, MAG) | 16 | 51.2Hz → 30Hz | 姿勢遷移含む詳細活動認識 |
 | **HAR70+** | 18 | LowerBack, RightThigh (2箇所) | Axivity AX3 (ACC) | 7 | 50Hz → 30Hz | 高齢者（70-95歳）特化 |
 | **HARTH** | 22 | LowerBack, RightThigh (2箇所) | Axivity AX3 (ACC) | 12 | 50Hz → 30Hz | 自由生活環境、サイクリング含む |
-| **OPPORTUNITY** | 4 | BACK, RUA, RLA, LUA, LLA (5箇所) | IMU (ACC, GYRO, MAG) | 17 | 30Hz | 日常生活動作、mid-level gestures |
+| **OPPORTUNITY** | 4 | 7つのIMU + 12個の加速度センサー (113ch) | IMU (ACC, GYRO, MAG) | 17 | 30Hz | 日常生活動作、mid-level gestures、全身センサー |
 
 ## ディレクトリ構成
 
@@ -152,7 +152,7 @@ data/processed/forthtrace/
 | FORTHTRACE | 9.8 (m/s²→G) | 51.2Hz | 30Hz | 150 (5秒) | 姿勢遷移ラベル含む |
 | HAR70+ | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 高齢者特化、加速度のみ |
 | HARTH | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 自由生活環境、サイクリング含む |
-| OPPORTUNITY | 9.8 (m/s²→G) | 30Hz | 30Hz | 150 (5秒) | Body-worn IMUセンサー、mid-level gestures |
+| OPPORTUNITY | 9.8 (m/s²→G) | 30Hz | 30Hz | 150 (5秒) | 113チャンネル全body-wornセンサー |
 
 **共通仕様:**
 - **ウィンドウサイズ**: 5秒（全データセット30Hzに統一後、150サンプル）

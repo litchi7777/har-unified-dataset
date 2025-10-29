@@ -145,8 +145,17 @@ DATASETS = {
         },
     },
     "OPPORTUNITY": {
-        "sensor_list": ["BACK", "RUA", "RLA", "LUA", "LLA"],  # IMUセンサー位置
-        "modalities": ["ACC", "GYRO", "MAG"],  # 全センサー共通
+        "sensor_list": ["BACK", "RUA", "RLA", "LUA", "LLA", "L_SHOE", "R_SHOE", "ACC_SENSORS"],  # 全Body-wornセンサー（113ch）
+        "modalities": {
+            "BACK": ["ACC", "GYRO", "MAG"],
+            "RUA": ["ACC", "GYRO", "MAG"],
+            "RLA": ["ACC", "GYRO", "MAG"],
+            "LUA": ["ACC", "GYRO", "MAG"],
+            "LLA": ["ACC", "GYRO", "MAG"],
+            "L_SHOE": ["ACC", "GYRO", "MAG"],
+            "R_SHOE": ["ACC", "GYRO", "MAG"],
+            "ACC_SENSORS": ["ACC"],  # 残り12個の加速度センサー
+        },
         "n_classes": 17,  # Mid-level gesturesの有効クラス数
         "sampling_rate": 30,  # Hz（既に30Hzなのでリサンプリング不要）
         "original_sampling_rate": 30,  # Hz
