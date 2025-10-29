@@ -10,14 +10,15 @@ Human Activity Recognition (HAR) データセットの統合前処理・可視�
 
 ## サポートデータセット
 
-| データセット | 被験者数 | センサー数 | 活動クラス数 | サンプリングレート | 特徴 |
-|------------|---------|-----------|------------|-----------------|------|
-| **DSADS** | 8 | 5 | 19 | 25Hz → 30Hz | 日常・スポーツ活動 |
-| **MHEALTH** | 10 | 3 | 12 | 50Hz → 30Hz | 健康モニタリング、ECGセンサー含む |
-| **OPENPACK** | 10 | 4 | 10 | 30Hz | 物流作業、クォータニオン含む |
-| **NHANES** | ~13,000 | 1 | 2 | 80Hz | 大規模健康調査、活動/非活動分類 |
-| **FORTHTRACE** | 15 | 5 | 16 | 51.2Hz → 30Hz | 姿勢遷移を含む詳細な活動認識 |
-| **HAR70+** | 18 | 2 | 7 | 50Hz → 30Hz | 高齢者（70-95歳）向け活動認識 |
+| データセット | 被験者数 | センサー位置 | センサータイプ | 活動クラス | サンプリングレート | 特徴 |
+|------------|---------|------------|--------------|-----------|-----------------|------|
+| **DSADS** | 8 | Torso, RightArm, LeftArm, RightLeg, LeftLeg (5箇所) | IMU (ACC, GYRO, MAG) | 19 | 25Hz → 30Hz | 日常・スポーツ活動、全身センサー |
+| **MHEALTH** | 10 | Chest, LeftAnkle, RightWrist (3箇所) | IMU (ACC, GYRO, MAG) + ECG | 12 | 50Hz → 30Hz | 健康モニタリング、心電図含む |
+| **OPENPACK** | 10 | atr01-04 (4箇所、装着位置は被験者依存) | IMU (ACC, GYRO, QUAT) | 10 | 30Hz | 物流作業、クォータニオン含む |
+| **NHANES** | ~13,000 | Waist (1箇所) | ACC | 2 | 80Hz | 大規模健康調査、活動/非活動 |
+| **FORTHTRACE** | 15 | LeftWrist, RightWrist, Torso, RightThigh, LeftAnkle (5箇所) | Shimmer IMU (ACC, GYRO, MAG) | 16 | 51.2Hz → 30Hz | 姿勢遷移含む詳細活動認識 |
+| **HAR70+** | 18 | LowerBack, RightThigh (2箇所) | Axivity AX3 (ACC) | 7 | 50Hz → 30Hz | 高齢者（70-95歳）特化 |
+| **HARTH** | 22 | LowerBack, RightThigh (2箇所) | Axivity AX3 (ACC) | 12 | 50Hz → 30Hz | 自由生活環境、サイクリング含む |
 
 ## ディレクトリ構成
 
@@ -147,6 +148,7 @@ data/processed/forthtrace/
 | NHANES | なし（G単位） | 80Hz | 80Hz | 400 (5秒) | 単一腰部センサー、大規模 |
 | FORTHTRACE | 9.8 (m/s²→G) | 51.2Hz | 30Hz | 150 (5秒) | 姿勢遷移ラベル含む |
 | HAR70+ | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 高齢者特化、加速度のみ |
+| HARTH | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 自由生活環境、サイクリング含む |
 
 **共通仕様:**
 - **ウィンドウサイズ**: 5秒（30Hzデータは150サンプル、80Hzデータは400サンプル）
@@ -189,3 +191,4 @@ git submodule update --init --recursive
 - **NHANES**: National Health and Nutrition Examination Survey (CDC, 2011-2014)
 - **FORTHTRACE**: FORTH-TRACE Dataset - Human Activity Recognition with Multi-sensor Data (https://zenodo.org/records/841301)
 - **HAR70+**: HAR70+ Dataset - Human Activity Recognition for Older Adults (UCI ML Repository, Dataset #780)
+- **HARTH**: HARTH Dataset - Human Activity Recognition Trondheim Dataset (UCI ML Repository, Dataset #779)
