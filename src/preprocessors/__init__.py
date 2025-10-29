@@ -95,6 +95,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .pamap2 import PAMAP2Preprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',
