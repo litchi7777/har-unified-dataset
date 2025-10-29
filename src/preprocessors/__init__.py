@@ -95,6 +95,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .lara import LaraPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',

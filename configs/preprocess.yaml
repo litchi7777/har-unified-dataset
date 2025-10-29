@@ -184,6 +184,27 @@ datasets:
     original_sampling_rate: 50  # Hz (元データ)
     # sampling_rateは30Hzにリサンプリングされる
 
+  # LARa (Logistic Activity Recognition) Dataset
+  lara:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は100Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 8     # 物流倉庫作業活動
+    num_subjects: 8       # S07-S14
+    num_sensors: 5        # LeftArm, LeftLeg, Neck, RightArm, RightLeg
+    num_channels: 30      # 5センサー × (3軸ACC + 3軸GYRO)
+    original_sampling_rate: 100  # Hz (元データ)
+    # sampling_rateは30Hzにリサンプリングされる
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR
