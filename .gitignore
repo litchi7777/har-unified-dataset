@@ -44,10 +44,6 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
-# Visualization outputs
-outputs/*.html
-!outputs/.gitkeep
-
 # Logs
 *.log
 logs/
