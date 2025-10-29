@@ -31,12 +31,30 @@ DATASETS = {
     },
     "PAMAP2": {
         "sensor_list": ["hand", "chest", "ankle"],
+        "modalities": {
+            "hand": ["ACC", "GYRO", "MAG"],
+            "chest": ["ACC", "GYRO", "MAG"],
+            "ankle": ["ACC", "GYRO", "MAG"]
+        },
         "n_classes": 12,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 100,  # Hz
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
+        "has_undefined_class": True,  # ラベル0（transient activities）を-1に変換
         "labels": {
-            0: 'lying', 1: 'sitting', 2: 'standing', 3: 'walking',
-            4: 'running', 5: 'cycling', 6: 'Nordic walking',
-            7: 'descending stairs', 8: 'vacuum clearning',
-            9: 'house clearning', 10: 'playing soccer', 11: 'rope jumping'
+            -1: 'other',  # transient activities (original label 0)
+            0: 'lying',   # original label 1
+            1: 'sitting',  # original label 2
+            2: 'standing',  # original label 3
+            3: 'walking',  # original label 4
+            4: 'running',  # original label 5
+            5: 'cycling',  # original label 6
+            6: 'Nordic walking',  # original label 7
+            7: 'ascending stairs',  # original label 12
+            8: 'descending stairs',  # original label 13
+            9: 'vacuum cleaning',  # original label 16
+            10: 'ironing',  # original label 17
+            11: 'rope jumping'  # original label 24
         },
     },
     "REALWORLD": {
@@ -168,6 +186,58 @@ DATASETS = {
             26: 'Heels (alternating) to the backside', 27: 'Knees bending (crouching)',
             28: 'Knees (alternating) bending forward', 29: 'Rotation on the knees',
             30: 'Rowing', 31: 'Elliptical bike', 32: 'Cycling'
+    "MEX": {
+        "sensor_list": ["Wrist", "Thigh"],
+        "modalities": ["ACC"],  # 加速度センサーのみ（3軸）
+        "n_classes": 7,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 100,  # Hz
+        "scale_factor": None,  # 既にG単位（±8g）なので変換不要
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Exercise 1',
+            1: 'Exercise 2',
+            2: 'Exercise 3',
+            3: 'Exercise 4',
+            4: 'Exercise 5',
+            5: 'Exercise 6',
+            6: 'Exercise 7'
+    "OPPORTUNITY": {
+        "sensor_list": ["BACK", "RUA", "RLA", "LUA", "LLA", "L_SHOE", "R_SHOE", "ACC_SENSORS"],  # 全Body-wornセンサー（113ch）
+        "modalities": {
+            "BACK": ["ACC", "GYRO", "MAG"],
+            "RUA": ["ACC", "GYRO", "MAG"],
+            "RLA": ["ACC", "GYRO", "MAG"],
+            "LUA": ["ACC", "GYRO", "MAG"],
+            "LLA": ["ACC", "GYRO", "MAG"],
+            "L_SHOE": ["ACC", "GYRO", "MAG"],
+            "R_SHOE": ["ACC", "GYRO", "MAG"],
+            "ACC_SENSORS": ["ACC"],  # 残り12個の加速度センサー
+        },
+        "n_classes": 17,  # Mid-level gesturesの有効クラス数
+        "sampling_rate": 30,  # Hz（既に30Hzなのでリサンプリング不要）
+        "original_sampling_rate": 30,  # Hz
+        "scale_factor": 9.8,  # m/s² -> G に変換（加速度のみ）
+        "has_undefined_class": True,  # ラベル-1（Null class）が存在
+        "labels": {
+            -1: 'Null',  # 未定義/無操作
+            0: 'Open Door 1',
+            1: 'Open Door 2',
+            2: 'Close Door 1',
+            3: 'Close Door 2',
+            4: 'Open Fridge',
+            5: 'Close Fridge',
+            6: 'Open Dishwasher',
+            7: 'Close Dishwasher',
+            8: 'Open Drawer 1',
+            9: 'Close Drawer 1',
+            10: 'Open Drawer 2',
+            11: 'Close Drawer 2',
+            12: 'Open Drawer 3',
+            13: 'Close Drawer 3',
+            14: 'Clean Table',
+            15: 'Drink from Cup',
+            16: 'Toggle Switch'
         },
     },
 }
