@@ -23,10 +23,18 @@ from .utils import (
     resample_timeseries,
     get_class_distribution
 )
+from .common import (
+    download_file,
+    extract_archive,
+    check_dataset_exists
+)
 from . import register_preprocessor
 from ..dataset_info import DATASETS
 
 logger = logging.getLogger(__name__)
+
+# LARA データセットのURL（手動ダウンロードが必要）
+LARA_URL = None  # 手動ダウンロードのみ
 
 
 @register_preprocessor('lara')
@@ -97,6 +105,59 @@ class LaraPreprocessor(BasePreprocessor):
 
     def get_dataset_name(self) -> str:
         return 'lara'
+
+    def download_dataset(self) -> None:
+        """
+        LARAデータセットのダウンロード（手動ダウンロードのみサポート）
+
+        既に解凍済みでZIPファイルが残っている場合は削除を提案
+        """
+        logger.info("=" * 80)
+        logger.info("LARA dataset setup")
+        logger.info("=" * 80)
+
+        dataset_path = self.raw_data_path / self.dataset_name
+
+        # データディレクトリが存在するかチェック
+        imu_dir = dataset_path / "IMU data (annotated) _ MbientLab"
+        data_exists = imu_dir.exists() and any(imu_dir.rglob('*.csv'))
+
+        # ZIPファイルが存在するかチェック
+        zip_path = dataset_path / "lara_imu.zip"
+        if zip_path.exists() and data_exists:
+            logger.warning(f"LARA data is already extracted at {dataset_path}")
+            logger.warning(f"ZIP file still exists: {zip_path} ({zip_path.stat().st_size / 1024 / 1024:.1f} MB)")
+            try:
+                response = input("Do you want to delete the ZIP file? (Y/n): ")
+                if response.lower() != 'n':
+                    logger.info(f"Deleting {zip_path}")
+                    zip_path.unlink()
+                    logger.info("ZIP file deleted successfully")
+                else:
+                    logger.info("Keeping ZIP file")
+            except EOFError:
+                # 非対話環境の場合はデフォルトでYes
+                logger.info(f"Non-interactive mode: Deleting {zip_path}")
+                zip_path.unlink()
+                logger.info("ZIP file deleted successfully")
+            return
+
+        # データセットが存在するかチェック（ZIPなし）
+        if data_exists:
+            logger.info(f"LARA data already exists at {dataset_path}")
+            return
+
+        # 手動ダウンロードの案内
+        logger.info("LARA dataset requires manual download:")
+        logger.info("  1. Visit: https://zenodo.org/record/3862782")
+        logger.info("  2. Download: lara_imu.zip")
+        logger.info(f"  3. Extract to: {dataset_path}/")
+        logger.info("  Expected structure: data/raw/lara/IMU data (annotated) _ MbientLab/S07/...")
+        logger.info("=" * 80)
+        raise NotImplementedError(
+            "LARA dataset must be downloaded manually.\n"
+            "Visit: https://zenodo.org/record/3862782"
+        )
 
     def load_raw_data(self) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
         """

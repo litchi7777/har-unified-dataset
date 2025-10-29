@@ -90,43 +90,55 @@ class MexPreprocessor(BasePreprocessor):
         """
         MEXデータセットをダウンロードして解凍
         """
+        logger.info("=" * 80)
+        logger.info("Downloading MEX dataset")
+        logger.info("=" * 80)
+
         dataset_path = self.raw_data_path / self.dataset_name
 
-        if check_dataset_exists(dataset_path):
-            logger.info(f"Dataset already exists at {dataset_path}")
-            return
+        # 既にデータが存在するかチェック
+        if check_dataset_exists(dataset_path, required_files=['act/*/01_act_1.csv']):
+            logger.warning(f"MEX data already exists at {dataset_path}")
+            response = input("Do you want to re-download? (y/N): ")
+            if response.lower() != 'y':
+                logger.info("Skipping download")
+                return
 
-        logger.info(f"Downloading MEx dataset from {MEX_URL}")
+        try:
+            # 1. ダウンロード
+            logger.info("Step 1/3: Downloading archive")
+            zip_path = self.raw_data_path / "mex.zip"
+            download_file(MEX_URL, zip_path, desc='Downloading MEX')
 
-        # データセットのダウンロード
-        zip_path = self.raw_data_path / "mex.zip"
-        download_file(MEX_URL, zip_path)
+            # 2. 外側のZIPファイルの解凍（一時ディレクトリに）
+            logger.info("Step 2/3: Extracting outer archive")
+            temp_dir = self.raw_data_path / "mex_temp"
+            extract_archive(zip_path, temp_dir, desc='Extracting MEX outer archive')
 
-        # ZIPファイルの解凍（一時ディレクトリに）
-        temp_dir = self.raw_data_path / "mex_temp"
-        logger.info(f"Extracting {zip_path} to {temp_dir}")
-        extract_archive(zip_path, temp_dir)
+            # 3. ネストされたdata.zipを確認して解凍
+            logger.info("Step 3/3: Extracting nested data.zip")
+            nested_zip = temp_dir / "data.zip"
+            if nested_zip.exists():
+                dataset_path.mkdir(parents=True, exist_ok=True)
+                extract_archive(nested_zip, dataset_path, desc='Extracting MEX data')
+                nested_zip.unlink()
+            else:
+                logger.error(f"data.zip not found in {temp_dir}")
+                raise FileNotFoundError(f"Expected data.zip in {temp_dir}")
 
-        # ネストされたdata.zipを確認して解凍
-        nested_zip = temp_dir / "data.zip"
-        if nested_zip.exists():
-            logger.info(f"Found nested data.zip, extracting to {dataset_path}")
-            dataset_path.mkdir(parents=True, exist_ok=True)
-            extract_archive(nested_zip, dataset_path)
-            nested_zip.unlink()
-        else:
-            # ネストされていない場合は、temp_dirをdataset_pathにリネーム
+            # クリーンアップ
+            if zip_path.exists():
+                zip_path.unlink()
             if temp_dir.exists():
-                temp_dir.rename(dataset_path)
+                import shutil
+                shutil.rmtree(temp_dir)
 
-        # 一時ファイルのクリーンアップ
-        if zip_path.exists():
-            zip_path.unlink()
-        if temp_dir.exists():
-            import shutil
-            shutil.rmtree(temp_dir)
+            logger.info(f"MEX dataset downloaded and extracted to {dataset_path}")
+            logger.info("=" * 80)
 
-        logger.info(f"Dataset downloaded and extracted to {dataset_path}")
+        except Exception as e:
+            logger.error(f"Failed to download MEX dataset: {e}")
+            raise
 
     def load_raw_data(self) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
         """
