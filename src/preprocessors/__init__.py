@@ -95,6 +95,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .mex import MexPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',

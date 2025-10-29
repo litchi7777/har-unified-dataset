@@ -184,6 +184,27 @@ datasets:
     original_sampling_rate: 50  # Hz (元データ)
     # sampling_rateは30Hzにリサンプリングされる
 
+  # MEx (Multi-modal Exercise) Dataset
+  mex:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は100Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 7     # 7種類の理学療法エクササイズ
+    num_subjects: 30      # 被験者数
+    num_sensors: 2        # Wrist, Thigh
+    num_channels: 6       # 2センサー × 3軸加速度
+    original_sampling_rate: 100  # Hz (元データ)
+    # sampling_rateは30Hzにリサンプリングされる
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR
