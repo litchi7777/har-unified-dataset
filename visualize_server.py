@@ -1739,90 +1739,112 @@ def api_tree():
     """ツリービュー用のデータセット階層構造を返す
 
     階層: Dataset → User → Position (LeftArm) → Modality (ACC) → Class
+    globでファイルシステムを探索
     """
+    if not DATA_DIR.exists():
+        return jsonify([])
+
     tree = []
 
-    if not DATA_DIR.exists():
-        return jsonify(tree)
+    # globでY.npyファイルを探索
+    y_files = sorted(DATA_DIR.glob('*/USER*/*/*/Y.npy'))
 
-    for dataset_path in sorted(DATA_DIR.iterdir()):
-        if not dataset_path.is_dir():
+    # データセットごとにグループ化
+    dataset_dict = {}
+
+    for y_path in y_files:
+        # パス解析: data/processed/dsads/USER00001/LeftArm/ACC/Y.npy
+        parts = y_path.parts
+        if len(parts) < 6:
             continue
 
+        dataset_name = parts[-5]
+        user_name = parts[-4]
+        position = parts[-3]
+        modality = parts[-2]
+
+        # Y.npyを読み込んでクラス情報を取得
+        try:
+            Y = np.load(y_path)
+            unique_classes = sorted(np.unique(Y).astype(int).tolist())
+        except Exception as e:
+            print(f"Error loading {y_path}: {e}")
+            continue
+
+        # データセットノードを作成
+        if dataset_name not in dataset_dict:
+            dataset_dict[dataset_name] = {}
+
+        # ユーザーノードを作成
+        if user_name not in dataset_dict[dataset_name]:
+            dataset_dict[dataset_name][user_name] = {}
+
+        # ポジションノードを作成
+        if position not in dataset_dict[dataset_name][user_name]:
+            dataset_dict[dataset_name][user_name][position] = {}
+
+        # モダリティノードを作成
+        dataset_dict[dataset_name][user_name][position][modality] = unique_classes
+
+    # ツリー構造に変換
+    for dataset_name in sorted(dataset_dict.keys()):
         dataset_node = {
-            'name': dataset_path.name,
+            'name': dataset_name,
             'type': 'dataset',
             'children': []
         }
 
-        # ユーザーディレクトリを探索
-        for user_path in sorted(dataset_path.iterdir()):
-            if not user_path.is_dir() or user_path.name == 'metadata.json':
-                continue
-
+        for user_name in sorted(dataset_dict[dataset_name].keys()):
             user_node = {
-                'name': user_path.name,
+                'name': user_name,
                 'type': 'user',
                 'children': []
             }
 
-            # 位置ディレクトリ（LeftArm, RightArm など）を探索
-            for position_path in sorted(user_path.iterdir()):
-                if not position_path.is_dir():
-                    continue
-
+            for position in sorted(dataset_dict[dataset_name][user_name].keys()):
                 position_node = {
-                    'name': position_path.name,
+                    'name': position,
                     'type': 'position',
                     'children': []
                 }
 
-                # モダリティディレクトリ（ACC, GYRO, MAG）を探索
-                for modality_path in sorted(position_path.iterdir()):
-                    if not modality_path.is_dir() or not (modality_path / 'X.npy').exists():
-                        continue
-
-                    sensor_name = f'{position_path.name}/{modality_path.name}'
-                    X, Y = load_sensor_data(dataset_path.name, user_path.name, sensor_name)
-
+                for modality in sorted(dataset_dict[dataset_name][user_name][position].keys()):
                     modality_node = {
-                        'name': modality_path.name,
+                        'name': modality,
                         'type': 'modality',
                         'children': []
                     }
 
-                    if X is not None and Y is not None:
-                        # 利用可能なクラスを取得
-                        unique_classes = sorted(np.unique(Y).astype(int).tolist())
+                    unique_classes = dataset_dict[dataset_name][user_name][position][modality]
+                    sensor_name = f'{position}/{modality}'
 
-                        for cls in unique_classes:
-                            activity_name = get_activity_name(dataset_path.name, cls)
-                            class_node = {
-                                'name': f'{activity_name} (Class {cls})',
-                                'type': 'class',
-                                'path': f'{dataset_path.name}/{user_path.name}/{sensor_name}',
-                                'class_id': cls
-                            }
-                            modality_node['children'].append(class_node)
+                    for cls in unique_classes:
+                        activity_name = get_activity_name(dataset_name, cls)
+                        class_node = {
+                            'name': f'{activity_name} (Class {cls})',
+                            'type': 'class',
+                            'path': f'{dataset_name}/{user_name}/{sensor_name}',
+                            'class_id': cls
+                        }
+                        modality_node['children'].append(class_node)
 
-                    if modality_node['children']:
-                        position_node['children'].append(modality_node)
+                    position_node['children'].append(modality_node)
 
-                if position_node['children']:
-                    user_node['children'].append(position_node)
+                user_node['children'].append(position_node)
 
-            if user_node['children']:
-                dataset_node['children'].append(user_node)
+            dataset_node['children'].append(user_node)
 
-        if dataset_node['children']:
-            tree.append(dataset_node)
+        tree.append(dataset_node)
 
     return jsonify(tree)
 
 
 @app.route('/api/statistics')
 def api_statistics():
-    """全データセットの統計情報を返す"""
+    """全データセットの統計情報を返す
+
+    globでファイルシステムを探索
+    """
     if not DATA_DIR.exists():
         return jsonify({'error': 'Data directory not found'}), 404
 
@@ -1835,93 +1857,89 @@ def api_statistics():
 
     all_users = set()
 
-    for dataset_path in sorted(DATA_DIR.iterdir()):
-        if not dataset_path.is_dir():
+    # globでY.npyファイルを探索
+    y_files = sorted(DATA_DIR.glob('*/USER*/*/*/Y.npy'))
+
+    # データセットごとにグループ化
+    dataset_stats_dict = {}
+
+    for y_path in y_files:
+        # パス解析: data/processed/dsads/USER00001/LeftArm/ACC/Y.npy
+        parts = y_path.parts
+        if len(parts) < 6:
             continue
 
-        dataset_stats = {
-            'name': dataset_path.name,
-            'total_windows': 0,
-            'num_users': 0,
-            'num_sensors': 0,
-            'num_classes': 0,
-            'sensors': set(),
-            'classes': {},  # class_id -> {name, total_windows, sensors: {sensor_name: count}}
-            'details': []
-        }
+        dataset_name = parts[-5]
+        user_name = parts[-4]
+        position = parts[-3]
+        modality = parts[-2]
+        sensor_name = f'{position}/{modality}'
 
-        dataset_users = set()
+        # データセット統計の初期化
+        if dataset_name not in dataset_stats_dict:
+            dataset_stats_dict[dataset_name] = {
+                'name': dataset_name,
+                'total_windows': 0,
+                'users': set(),
+                'sensors': set(),
+                'classes': {},  # class_id -> {name, total_windows, sensors: {sensor_name: count}}
+                'details': []
+            }
 
-        # ユーザーディレクトリを探索
-        for user_path in sorted(dataset_path.iterdir()):
-            if not user_path.is_dir() or user_path.name == 'metadata.json':
-                continue
+        dataset_stats_dict[dataset_name]['users'].add(user_name)
+        dataset_stats_dict[dataset_name]['sensors'].add(sensor_name)
+        all_users.add(user_name)
 
-            all_users.add(user_path.name)
-            dataset_users.add(user_path.name)
+        # Y.npyを読み込んでクラス分布を取得
+        try:
+            Y = np.load(y_path)
+            unique_classes = np.unique(Y)
 
-            # 位置ディレクトリを探索
-            for position_path in sorted(user_path.iterdir()):
-                if not position_path.is_dir():
-                    continue
+            for cls in unique_classes:
+                count = int(np.sum(Y == cls))
+                class_id = int(cls)
+                activity_name = get_activity_name(dataset_name, class_id)
 
-                # モダリティディレクトリを探索
-                for modality_path in sorted(position_path.iterdir()):
-                    if not modality_path.is_dir():
-                        continue
+                # クラス別集計
+                if class_id not in dataset_stats_dict[dataset_name]['classes']:
+                    dataset_stats_dict[dataset_name]['classes'][class_id] = {
+                        'name': activity_name,
+                        'total_windows': 0,
+                        'sensors': {}
+                    }
 
-                    Y_path = modality_path / 'Y.npy'
-                    if not Y_path.exists():
-                        continue
+                dataset_stats_dict[dataset_name]['classes'][class_id]['total_windows'] += count
+                dataset_stats_dict[dataset_name]['classes'][class_id]['sensors'][sensor_name] = \
+                    dataset_stats_dict[dataset_name]['classes'][class_id]['sensors'].get(sensor_name, 0) + count
 
-                    sensor_name = f'{position_path.name}/{modality_path.name}'
-                    dataset_stats['sensors'].add(sensor_name)
+                dataset_stats_dict[dataset_name]['details'].append({
+                    'user': user_name,
+                    'position': position,
+                    'modality': modality,
+                    'sensor': sensor_name,
+                    'class_id': class_id,
+                    'activity_name': activity_name,
+                    'count': count
+                })
 
-                    try:
-                        Y = np.load(Y_path)
-                        unique_classes = np.unique(Y)
+                dataset_stats_dict[dataset_name]['total_windows'] += count
 
-                        # クラスごとにカウント
-                        for cls in unique_classes:
-                            count = int(np.sum(Y == cls))
-                            activity_name = get_activity_name(dataset_path.name, int(cls))
-                            class_id = int(cls)
+        except Exception as e:
+            print(f"Error loading {y_path}: {e}")
+            continue
 
-                            # クラス別集計
-                            if class_id not in dataset_stats['classes']:
-                                dataset_stats['classes'][class_id] = {
-                                    'name': activity_name,
-                                    'total_windows': 0,
-                                    'sensors': {}
-                                }
-
-                            dataset_stats['classes'][class_id]['total_windows'] += count
-                            dataset_stats['classes'][class_id]['sensors'][sensor_name] = \
-                                dataset_stats['classes'][class_id]['sensors'].get(sensor_name, 0) + count
-
-                            dataset_stats['details'].append({
-                                'user': user_path.name,
-                                'position': position_path.name,
-                                'modality': modality_path.name,
-                                'sensor': sensor_name,
-                                'class_id': class_id,
-                                'activity_name': activity_name,
-                                'count': count
-                            })
-
-                            dataset_stats['total_windows'] += count
-
-                    except Exception as e:
-                        print(f"Error loading {Y_path}: {e}")
-                        continue
+    # 統計情報を整形
+    for dataset_name in sorted(dataset_stats_dict.keys()):
+        dataset_stats = dataset_stats_dict[dataset_name]
 
         if dataset_stats['details']:
-            dataset_stats['num_users'] = len(dataset_users)
+            dataset_stats['num_users'] = len(dataset_stats['users'])
             dataset_stats['num_sensors'] = len(dataset_stats['sensors'])
             dataset_stats['num_classes'] = len(dataset_stats['classes'])
 
             # セットをリストに変換（JSON化のため）
             dataset_stats['sensors'] = sorted(list(dataset_stats['sensors']))
+            del dataset_stats['users']  # セットは不要
 
             # クラス情報を整形
             dataset_stats['class_summary'] = []
