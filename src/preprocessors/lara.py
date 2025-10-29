@@ -290,7 +290,9 @@ class LaraPreprocessor(BasePreprocessor):
                 window_size=self.window_size,
                 stride=self.stride
             )
-            # X shape: (num_windows, 30, window_size)
+            # X shape after create_sliding_windows: (num_windows, window_size, 30)
+            # 転置して (num_windows, 30, window_size) に変換
+            X = X.transpose(0, 2, 1)  # (num_windows, 30_channels, window_size)
             # Y shape: (num_windows,)
 
             logger.info(f"  Generated {len(X)} windows")
