@@ -95,6 +95,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .opportunity import OpportunityPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',
