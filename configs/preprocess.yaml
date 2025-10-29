@@ -186,11 +186,16 @@ datasets:
 
   # PAMAP2 (Physical Activity Monitoring) Dataset
   pamap2:
+  # MEx (Multi-modal Exercise) Dataset
+  mex:
+  # OPPORTUNITY (OPPORTUNITY Activity Recognition) Dataset
+  opportunity:
     # データパス
     raw_data_path: data/raw
     processed_data_path: data/processed
 
     # サンプリングレート
+
     target_sampling_rate: 30  # Hz (元は100Hzからリサンプリング)
 
     # ウィンドウパラメータ
@@ -204,6 +209,12 @@ datasets:
     num_channels: 27      # 3センサー × 9チャンネル (ACC:3 + GYRO:3 + MAG:3 per sensor)
     original_sampling_rate: 100  # Hz (元データ)
     # sampling_rateは30Hzにリサンプリングされる
+    num_activities: 17    # Mid-level gestures (Open/Close doors, drawers, etc.)
+    num_subjects: 4       # S1-S4
+    num_sensors: 8        # 7 IMUs (BACK, RUA, RLA, LUA, LLA, L_SHOE, R_SHOE) + ACC_SENSORS group
+    num_channels: 113     # 全body-wornセンサー（IMU 7×13ch + 加速度センサー 22ch）
+    original_sampling_rate: 30  # Hz (元データ)
+    # リサンプリング不要
 
 # ロギング設定
 logging:
