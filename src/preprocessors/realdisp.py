@@ -68,8 +68,8 @@ class RealDispPreprocessor(BasePreprocessor):
             'QUAT': (9, 13)   # 4Dクォータニオン
         }
 
-        # サンプリングレート（データから推定する必要がある）
-        self.original_sampling_rate = None  # データ読み込み時に推定
+        # サンプリングレート
+        self.original_sampling_rate = DATASETS.get('REALDISP', {}).get('original_sampling_rate', 50)  # Hz (推定値)
         self.target_sampling_rate = config.get('target_sampling_rate', 30)  # Hz (目標)
 
         # 前処理パラメータ

@@ -119,7 +119,8 @@ class MexPreprocessor(BasePreprocessor):
         - data/raw/mex/MEx/acw/{subject_id}/{exercise_id}.txt (wrist accelerometer)
         - data/raw/mex/MEx/act/{subject_id}/{exercise_id}.txt (thigh accelerometer)
         - 各ファイル: timestamp x y z (スペース区切り)
-        - エクササイズID: 1-8 (エクササイズ4は2回、それ以外は各1回)
+        - エクササイズID: 1-7 (エクササイズ4は左右2回: 4L.txt, 4R.txt)
+        - ラベル: 0-6 (0-indexed)
 
         Returns:
             person_data: {person_id: (data, labels)} の辞書

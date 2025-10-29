@@ -179,6 +179,8 @@ DATASETS = {
             5: 'Downwards',
             6: 'TorsoRotation',
             7: 'OtherMotion'
+        },
+    },
     "REALDISP": {
         "sensor_list": ["LeftCalf", "LeftThigh", "RightCalf", "RightThigh", "Back",
                        "LeftLowerArm", "LeftUpperArm", "RightLowerArm", "RightUpperArm"],
@@ -203,6 +205,8 @@ DATASETS = {
             26: 'Heels (alternating) to the backside', 27: 'Knees bending (crouching)',
             28: 'Knees (alternating) bending forward', 29: 'Rotation on the knees',
             30: 'Rowing', 31: 'Elliptical bike', 32: 'Cycling'
+        },
+    },
     "MEX": {
         "sensor_list": ["Wrist", "Thigh"],
         "modalities": ["ACC"],  # 加速度センサーのみ（3軸）
@@ -212,13 +216,15 @@ DATASETS = {
         "scale_factor": None,  # 既にG単位（±8g）なので変換不要
         "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
         "labels": {
-            0: 'Exercise 1',
-            1: 'Exercise 2',
-            2: 'Exercise 3',
-            3: 'Exercise 4',
-            4: 'Exercise 5',
-            5: 'Exercise 6',
-            6: 'Exercise 7'
+            0: 'Knee-rolling',
+            1: 'Bridging',
+            2: 'Pelvic tilt',
+            3: 'The Clam',
+            4: 'Repeated Extension in Lying',
+            5: 'Prone punches',
+            6: 'Superman'
+        },
+    },
     "OPPORTUNITY": {
         "sensor_list": ["BACK", "RUA", "RLA", "LUA", "LLA", "L_SHOE", "R_SHOE", "ACC_SENSORS"],  # 全Body-wornセンサー（113ch）
         "modalities": {
