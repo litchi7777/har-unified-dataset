@@ -162,6 +162,30 @@ DATASETS = {
             11: 'Cycling Standing Inactive' # label=140 -> 11 (not in sample, but in spec)
         },
     },
+    "REALDISP": {
+        "sensor_list": ["LeftCalf", "LeftThigh", "RightCalf", "RightThigh", "Back",
+                       "LeftLowerArm", "LeftUpperArm", "RightLowerArm", "RightUpperArm"],
+        "modalities": ["ACC", "GYRO", "MAG", "QUAT"],  # 全センサー共通
+        "n_classes": 33,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 50,  # Hz (推定値)
+        "scale_factor": None,  # 単位要確認（おそらくG単位）
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Walking', 1: 'Jogging', 2: 'Running', 3: 'Jump up',
+            4: 'Jump front & back', 5: 'Jump sideways', 6: 'Jump leg/arms open/closed',
+            7: 'Jump rope', 8: 'Trunk twist (arms outstretched)', 9: 'Trunk twist (elbows bent)',
+            10: 'Waist bends forward', 11: 'Waist rotation',
+            12: 'Waist bends (reach foot with opposite hand)', 13: 'Reach heels backwards',
+            14: 'Lateral bend (left+right)', 15: 'Lateral bend with arm up (left+right)',
+            16: 'Repetitive forward stretching', 17: 'Upper trunk and lower body opposite twist',
+            18: 'Lateral elevation of arms', 19: 'Frontal elevation of arms',
+            20: 'Frontal hand claps', 21: 'Frontal crossing of arms',
+            22: 'Shoulders high-amplitude rotation', 23: 'Shoulders low-amplitude rotation',
+            24: 'Arms inner rotation', 25: 'Knees (alternating) to the breast',
+            26: 'Heels (alternating) to the backside', 27: 'Knees bending (crouching)',
+            28: 'Knees (alternating) bending forward', 29: 'Rotation on the knees',
+            30: 'Rowing', 31: 'Elliptical bike', 32: 'Cycling'
     "MEX": {
         "sensor_list": ["Wrist", "Thigh"],
         "modalities": ["ACC"],  # 加速度センサーのみ（3軸）

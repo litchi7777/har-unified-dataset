@@ -184,6 +184,8 @@ datasets:
     original_sampling_rate: 50  # Hz (元データ)
     # sampling_rateは30Hzにリサンプリングされる
 
+  # REALDISP (REAListic sensor DISPlacement) Activity Recognition Dataset
+  realdisp:
   # PAMAP2 (Physical Activity Monitoring) Dataset
   pamap2:
   # MEx (Multi-modal Exercise) Dataset
@@ -195,6 +197,7 @@ datasets:
     processed_data_path: data/processed
 
     # サンプリングレート
+    target_sampling_rate: 30  # Hz (推定50Hzからリサンプリング)
 
     target_sampling_rate: 30  # Hz (元は100Hzからリサンプリング)
 
@@ -202,6 +205,16 @@ datasets:
     window_size: 150      # 5秒 @ 30Hz
     stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
 
+    # 処理するシナリオ（複数指定可能）
+    scenarios: ['ideal']  # ideal, self, mutual から選択
+
+    # データセット情報（参考用）
+    num_activities: 33    # 33種類のフィットネス・日常活動
+    num_subjects: 17      # 17人の被験者
+    num_sensors: 9        # 全身9箇所（両手足、背中）
+    num_channels: 117     # 9センサー × 13チャンネル (ACC:3 + GYRO:3 + MAG:3 + QUAT:4)
+    original_sampling_rate: 50  # Hz (データから推定)
+    # sampling_rateは30Hzにリサンプリングされる
     # データセット情報（参考用）
     num_activities: 12    # lying, sitting, standing, walking, running, cycling, Nordic walking, stairs, vacuum cleaning, ironing, rope jumping
     num_subjects: 9       # 被験者ID: 101-109

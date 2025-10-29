@@ -96,6 +96,11 @@ except ImportError:
     pass
 
 try:
+    from .realdisp import RealDispPreprocessor
+except ImportError:
+    pass
+
+try:
     from .harth import HarthPreprocessor
 except ImportError:
     pass
