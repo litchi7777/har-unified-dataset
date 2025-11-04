@@ -127,6 +127,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .ego4d import Ego4dPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',
