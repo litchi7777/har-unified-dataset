@@ -292,6 +292,17 @@ datasets:
     original_sampling_rate: 30  # Hz (元データ)
     # リサンプリング不要
 
+  # Ego4D Dataset
+  ego4d:
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+    ego4d_src_root: /mnt/cafe/tadatsu/dataStoreRoot/Ego4D/original/v2/imu
+    target_sampling_rate: 30
+    window_size: 150
+    stride: 30  
+    max_gap_sec: 1.0 # 1.0秒を超えるギャップ、または逆行で分割
+    min_dataset_span_sec: 0.9933333333333333 # =149/150 # 少なくともこの時間以上の連続区間が必要
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR
