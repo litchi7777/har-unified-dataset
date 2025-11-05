@@ -303,6 +303,7 @@ class PAALPreprocessor(BasePreprocessor):
 
         # 被験者ごとにデータを分割して保存
         unique_subjects = np.unique(subjects)
+        users_dict = {}
 
         for subject_id in unique_subjects:
             # 該当被験者のインデックス
@@ -336,9 +337,25 @@ class PAALPreprocessor(BasePreprocessor):
                 f"Saved {len(subject_features)} windows for USER{subject_id:05d}"
             )
 
+            # users辞書に追加（可視化ツール用）
+            user_id_str = f"USER{subject_id:05d}"
+            users_dict[user_id_str] = {
+                "sensor_modalities": {
+                    "Wrist/ACC": {
+                        "X_shape": [len(subject_labels), self.window_size],
+                        "Y_shape": [len(subject_labels), self.window_size],
+                        "Z_shape": [len(subject_labels), self.window_size],
+                        "labels_shape": [len(subject_labels)],
+                        "num_windows": len(subject_labels),
+                        "unique_labels": sorted([int(l) for l in np.unique(subject_labels)])
+                    }
+                }
+            }
+
         # メタデータを保存
         import json
         metadata = {
+            'dataset': self.get_dataset_name(),
             'num_subjects': len(unique_subjects),
             'num_windows': len(features),
             'num_activities': self.num_activities,
@@ -347,9 +364,11 @@ class PAALPreprocessor(BasePreprocessor):
             'sampling_rate': self.target_sampling_rate,
             'original_sampling_rate': self.original_sampling_rate,
             'scale_factor': self.scale_factor,
+            'sensor_names': ['Wrist'],
             'sensor_positions': ['Wrist'],
             'modalities': ['ACC'],
             'channels_per_modality': 3,
+            'users': users_dict,
         }
 
         metadata_path = save_dir / 'metadata.json'
