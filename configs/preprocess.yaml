@@ -296,7 +296,7 @@ datasets:
   ego4d:
     raw_data_path: data/raw
     processed_data_path: data/processed
-    ego4d_src_root: /mnt/cafe/tadatsu/dataStoreRoot/Ego4D/original/v2/imu
+    ego4d_src_root: /mnt/cafe/tadatsu/dataStoreRoot/Ego4D/original/v2/imu # すでにダウンロードしているデータセットを使う用の強制データパス
     target_sampling_rate: 30
     window_size: 150
     stride: 30  
