@@ -93,15 +93,15 @@ DATASETS = {
             "atr03": ["ACC", "GYRO", "QUAT"],
             "atr04": ["ACC", "GYRO", "QUAT"]
         },
-        "n_classes": 10,
+        "n_classes": 9,
         "sampling_rate": 30,  # Hz
         "original_sampling_rate": 30,  # Hz (リサンプリング不要)
         "has_undefined_class": True,  # ラベル-1が存在
         "labels": {
-            -1: 'Undefined',  # 未定義/無操作
+            -1: 'Undefined',  # 未定義/無操作/その他（operation=0,10）
             0: 'Assemble', 1: 'Insert', 2: 'Put', 3: 'Walk',
             4: 'Pick', 5: 'Scan', 6: 'Press', 7: 'Open',
-            8: 'Close', 9: 'Other'
+            8: 'Close'
         },
     },
     "FORTHTRACE": {

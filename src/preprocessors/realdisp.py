@@ -23,10 +23,19 @@ from .utils import (
     resample_timeseries,
     get_class_distribution
 )
+from .common import (
+    download_file,
+    extract_archive,
+    cleanup_temp_files,
+    check_dataset_exists
+)
 from . import register_preprocessor
 from ..dataset_info import DATASETS
 
 logger = logging.getLogger(__name__)
+
+# REALDISP dataset URL
+REALDISP_URL = "https://archive.ics.uci.edu/static/public/305/realdisp+activity+recognition+dataset.zip"
 
 
 @register_preprocessor('realdisp')
@@ -87,24 +96,81 @@ class RealDispPreprocessor(BasePreprocessor):
 
     def download_dataset(self) -> None:
         """
-        REALDISPデータセットをUCI MLリポジトリからダウンロード
-
-        Note: REALDISPデータセットは手動でダウンロードする必要があります。
-        URL: https://archive.ics.uci.edu/dataset/305/realdisp+activity+recognition+dataset
-
-        ダウンロード後、以下の構造で配置してください:
-        data/raw/realdisp/*.log
+        REALDISPデータセットをUCI MLリポジトリからダウンロードして解凍
         """
-        logger.info("REALDISP dataset download:")
-        logger.info("  URL: https://archive.ics.uci.edu/dataset/305/realdisp+activity+recognition+dataset")
-        logger.info("  Please download manually and extract to data/raw/realdisp/")
-        logger.info("  Expected structure: data/raw/realdisp/*.log")
+        logger.info("=" * 80)
+        logger.info("Downloading REALDISP dataset")
+        logger.info("=" * 80)
 
-        raise NotImplementedError(
-            "REALDISP dataset must be downloaded manually.\n"
-            "Visit: https://archive.ics.uci.edu/dataset/305/realdisp+activity+recognition+dataset\n"
-            "Extract to: data/raw/realdisp/"
-        )
+        realdisp_raw_path = self.raw_data_path / self.dataset_name
+
+        # 既にデータが存在するかチェック
+        if check_dataset_exists(realdisp_raw_path, required_files=['*.log']):
+            logger.warning(f"REALDISP data already exists at {realdisp_raw_path}")
+            response = input("Do you want to re-download? (y/N): ")
+            if response.lower() != 'y':
+                logger.info("Skipping download")
+                return
+
+        try:
+            # 1. ダウンロード
+            logger.info("Step 1/2: Downloading archive (2.5 GB, may take a while)")
+            realdisp_raw_path.parent.mkdir(parents=True, exist_ok=True)
+            zip_path = realdisp_raw_path.parent / 'realdisp.zip'
+            download_file(REALDISP_URL, zip_path, desc='Downloading REALDISP')
+
+            # 2. 解凍してデータ整理
+            logger.info("Step 2/2: Extracting and organizing data")
+            extract_to = realdisp_raw_path.parent / 'realdisp_temp'
+            extract_archive(zip_path, extract_to, desc='Extracting REALDISP')
+            self._organize_realdisp_data(extract_to, realdisp_raw_path)
+
+            # クリーンアップ
+            cleanup_temp_files(extract_to)
+            if zip_path.exists():
+                zip_path.unlink()
+
+            logger.info("=" * 80)
+            logger.info(f"SUCCESS: REALDISP dataset downloaded to {realdisp_raw_path}")
+            logger.info("=" * 80)
+
+        except Exception as e:
+            logger.error(f"Failed to download REALDISP dataset: {e}", exc_info=True)
+            raise
+
+    def _organize_realdisp_data(self, extracted_path: Path, target_path: Path) -> None:
+        """
+        REALDISPデータを適切なディレクトリ構造に整理
+
+        Args:
+            extracted_path: 解凍されたデータのパス
+            target_path: 整理後の保存先パス（data/raw/realdisp）
+        """
+        import shutil
+
+        logger.info(f"Organizing REALDISP data from {extracted_path} to {target_path}")
+
+        # 解凍されたデータのルートを見つける
+        # ZIPファイルの構造を探索
+        log_files = list(extracted_path.rglob('*.log'))
+
+        if not log_files:
+            raise FileNotFoundError(
+                f"No .log files found in extracted archive at {extracted_path}"
+            )
+
+        logger.info(f"Found {len(log_files)} log files")
+
+        # ターゲットディレクトリを作成
+        target_path.mkdir(parents=True, exist_ok=True)
+
+        # すべてのlogファイルをフラットな構造でコピー
+        for log_file in log_files:
+            dest_file = target_path / log_file.name
+            shutil.copy2(log_file, dest_file)
+            logger.info(f"  Copied: {log_file.name}")
+
+        logger.info(f"Organized {len(log_files)} files to {target_path}")
 
     def _estimate_sampling_rate(self, timestamps: np.ndarray) -> float:
         """
