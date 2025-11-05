@@ -286,6 +286,26 @@ DATASETS = {
             11: 'Elevator Down'
         },
     },
+    "SELFBACK": {
+        "sensor_list": ["Wrist", "Thigh"],
+        "modalities": ["ACC"],  # 加速度センサーのみ（3軸）
+        "n_classes": 9,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 100,  # Hz
+        "scale_factor": None,  # 既にG単位（±8g）なので変換不要
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Walking Downstairs',
+            1: 'Walking Upstairs',
+            2: 'Walking Slow',
+            3: 'Walking Moderate',
+            4: 'Walking Fast',
+            5: 'Jogging',
+            6: 'Sitting',
+            7: 'Standing',
+            8: 'Lying'
+        },
+    },
 }
 
 

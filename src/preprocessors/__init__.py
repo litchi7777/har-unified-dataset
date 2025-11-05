@@ -132,6 +132,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .selfback import SelfBackPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',
