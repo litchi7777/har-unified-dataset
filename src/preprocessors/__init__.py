@@ -127,6 +127,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .uschad import USCHADPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',

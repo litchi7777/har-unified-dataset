@@ -263,6 +263,29 @@ DATASETS = {
             16: 'Toggle Switch'
         },
     },
+    "USCHAD": {
+        "sensor_list": ["Hip"],
+        "modalities": ["ACC", "GYRO"],  # 加速度センサー（3軸） + ジャイロスコープ（3軸）
+        "n_classes": 12,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 100,  # Hz
+        "scale_factor": None,  # 既にG単位なので変換不要
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Walking Forward',
+            1: 'Walking Left',
+            2: 'Walking Right',
+            3: 'Walking Upstairs',
+            4: 'Walking Downstairs',
+            5: 'Running Forward',
+            6: 'Jumping Up',
+            7: 'Sitting',
+            8: 'Standing',
+            9: 'Sleeping',
+            10: 'Elevator Up',
+            11: 'Elevator Down'
+        },
+    },
 }
 
 
