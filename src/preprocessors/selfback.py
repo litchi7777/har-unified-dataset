@@ -92,6 +92,9 @@ class SelfBackPreprocessor(BasePreprocessor):
             'lying': 8,
         }
 
+        # ユーザーID再マッピング用（load_raw_dataで初期化）
+        self.user_id_mapping = {}
+
     def get_dataset_name(self) -> str:
         return 'selfback'
 
@@ -206,23 +209,32 @@ class SelfBackPreprocessor(BasePreprocessor):
         # 最初のアクティビティディレクトリから被験者IDリストを取得
         first_activity = list(w_dir.iterdir())[0]
         subject_files = [f for f in first_activity.glob("*.csv") if not f.name.startswith('._')]
-        subject_ids = sorted([int(f.stem) for f in subject_files])
+        original_subject_ids = sorted([int(f.stem) for f in subject_files])
 
-        logger.info(f"Found {len(subject_ids)} subjects: {min(subject_ids)}-{max(subject_ids)}")
+        logger.info(f"Found {len(original_subject_ids)} subjects: {min(original_subject_ids)}-{max(original_subject_ids)}")
 
-        # 被験者ごとにデータを格納
+        # ユーザーIDマッピングを作成（元のID → シーケンシャルID）
+        # 例: 26 -> 1, 27 -> 2, ..., 63 -> 33
+        self.user_id_mapping = {
+            original_id: new_id
+            for new_id, original_id in enumerate(original_subject_ids, start=1)
+        }
+        logger.info(f"User ID mapping created: {min(original_subject_ids)} -> 1, {max(original_subject_ids)} -> {len(original_subject_ids)}")
+
+        # 被験者ごとにデータを格納（マップされたIDを使用）
         person_data = {}
 
-        for subject_id in subject_ids:
-            person_data[subject_id] = {'data': [], 'labels': []}
+        for original_id in original_subject_ids:
+            mapped_id = self.user_id_mapping[original_id]
+            person_data[mapped_id] = {'data': [], 'labels': []}
 
             # 各アクティビティについて
             for activity_name, activity_id in self.activity_names.items():
-                w_file = w_dir / activity_name / f"{subject_id:03d}.csv"
-                t_file = (raw_path / 't') / activity_name / f"{subject_id:03d}.csv"
+                w_file = w_dir / activity_name / f"{original_id:03d}.csv"
+                t_file = (raw_path / 't') / activity_name / f"{original_id:03d}.csv"
 
                 if not w_file.exists() or not t_file.exists():
-                    logger.warning(f"Missing files for USER{subject_id:05d}, activity {activity_name}")
+                    logger.warning(f"Missing files for USER{mapped_id:05d} (original ID: {original_id}), activity {activity_name}")
                     continue
 
                 try:
@@ -246,23 +258,24 @@ class SelfBackPreprocessor(BasePreprocessor):
                     # ラベル生成
                     labels = np.full(len(merged_data), activity_id)
 
-                    person_data[subject_id]['data'].append(merged_data)
-                    person_data[subject_id]['labels'].append(labels)
+                    person_data[mapped_id]['data'].append(merged_data)
+                    person_data[mapped_id]['labels'].append(labels)
 
                 except Exception as e:
-                    logger.error(f"Error loading USER{subject_id:05d}, activity {activity_name}: {e}")
+                    logger.error(f"Error loading USER{mapped_id:05d} (original ID: {original_id}), activity {activity_name}: {e}")
                     continue
 
         # 各被験者のデータを結合
         result = {}
-        for subject_id in subject_ids:
-            if person_data[subject_id]['data']:
-                data = np.vstack(person_data[subject_id]['data'])
-                labels = np.hstack(person_data[subject_id]['labels'])
-                result[subject_id] = (data, labels)
-                logger.info(f"USER{subject_id:05d}: {data.shape}, Labels: {labels.shape}")
+        for original_id in original_subject_ids:
+            mapped_id = self.user_id_mapping[original_id]
+            if person_data[mapped_id]['data']:
+                data = np.vstack(person_data[mapped_id]['data'])
+                labels = np.hstack(person_data[mapped_id]['labels'])
+                result[mapped_id] = (data, labels)
+                logger.info(f"USER{mapped_id:05d} (original ID: {original_id}): {data.shape}, Labels: {labels.shape}")
             else:
-                logger.warning(f"No data loaded for USER{subject_id:05d}")
+                logger.warning(f"No data loaded for USER{mapped_id:05d} (original ID: {original_id})")
 
         if not result:
             raise ValueError("No data loaded. Please check the raw data directory structure.")
