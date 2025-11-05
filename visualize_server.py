@@ -1789,25 +1789,15 @@ def api_tree():
 
     tree = []
 
-    # globでlabels.npyまたはY.npyファイルを探索（labels.npyを優先）
-    label_files = sorted(DATA_DIR.glob('*/USER*/*/*/labels.npy'))
+    # globでY.npyファイルを探索
     y_files = sorted(DATA_DIR.glob('*/USER*/*/*/Y.npy'))
-
-    # labels.npyとY.npyをマージ（labels.npyを優先）
-    all_label_paths = {}
-    for y_path in y_files:
-        key = str(y_path.parent)
-        all_label_paths[key] = y_path
-    for label_path in label_files:
-        key = str(label_path.parent)
-        all_label_paths[key] = label_path  # labels.npyで上書き
 
     # データセットごとにグループ化
     dataset_dict = {}
 
-    for dir_path, label_path in sorted(all_label_paths.items()):
-        # パス解析: data/processed/dsads/USER00001/LeftArm/ACC/Y.npy or labels.npy
-        parts = label_path.parts
+    for y_path in y_files:
+        # パス解析: data/processed/dsads/USER00001/LeftArm/ACC/Y.npy
+        parts = y_path.parts
         if len(parts) < 6:
             continue
 
@@ -1816,17 +1806,17 @@ def api_tree():
         position = parts[-3]
         modality = parts[-2]
 
-        # ラベルファイルを読み込んでクラス情報を取得
+        # Y.npyを読み込んでクラス情報を取得
         try:
-            labels = np.load(label_path)
-            # 1次元配列の場合のみ処理（Y.npyが2次元の場合はスキップ）
-            if labels.ndim == 1:
-                unique_classes = sorted(np.unique(labels).astype(int).tolist())
+            Y = np.load(y_path)
+            # 1次元配列の場合のみ処理（ラベル）
+            if Y.ndim == 1:
+                unique_classes = sorted(np.unique(Y).astype(int).tolist())
             else:
-                # 2次元の場合はY軸データなのでスキップ
+                # 2次元以上の場合はスキップ（旧PAAL形式のY軸データ等）
                 continue
         except Exception as e:
-            print(f"Error loading {label_path}: {e}")
+            print(f"Error loading {y_path}: {e}")
             continue
 
         # データセットノードを作成
@@ -1915,25 +1905,15 @@ def api_statistics():
 
     all_users = set()
 
-    # globでlabels.npyまたはY.npyファイルを探索（labels.npyを優先）
-    label_files = sorted(DATA_DIR.glob('*/USER*/*/*/labels.npy'))
+    # globでY.npyファイルを探索
     y_files = sorted(DATA_DIR.glob('*/USER*/*/*/Y.npy'))
-
-    # labels.npyとY.npyをマージ（labels.npyを優先）
-    all_label_paths = {}
-    for y_path in y_files:
-        key = str(y_path.parent)
-        all_label_paths[key] = y_path
-    for label_path in label_files:
-        key = str(label_path.parent)
-        all_label_paths[key] = label_path  # labels.npyで上書き
 
     # データセットごとにグループ化
     dataset_stats_dict = {}
 
-    for dir_path, label_path in sorted(all_label_paths.items()):
-        # パス解析: data/processed/dsads/USER00001/LeftArm/ACC/Y.npy or labels.npy
-        parts = label_path.parts
+    for y_path in y_files:
+        # パス解析: data/processed/dsads/USER00001/LeftArm/ACC/Y.npy
+        parts = y_path.parts
         if len(parts) < 6:
             continue
 
@@ -1958,16 +1938,16 @@ def api_statistics():
         dataset_stats_dict[dataset_name]['sensors'].add(sensor_name)
         all_users.add(user_name)
 
-        # ラベルファイルを読み込んでクラス分布を取得
+        # Y.npyを読み込んでクラス分布を取得
         try:
-            labels = np.load(label_path)
-            # 1次元配列の場合のみ処理（Y.npyが2次元の場合はスキップ）
-            if labels.ndim != 1:
+            Y = np.load(y_path)
+            # 1次元配列の場合のみ処理（ラベル）
+            if Y.ndim != 1:
                 continue
-            unique_classes = np.unique(labels)
+            unique_classes = np.unique(Y)
 
             for cls in unique_classes:
-                count = int(np.sum(labels == cls))
+                count = int(np.sum(Y == cls))
                 class_id = int(cls)
                 activity_name = get_activity_name(dataset_name, class_id)
 

@@ -385,10 +385,8 @@ class PAALPreprocessor(BasePreprocessor):
                 USER{subject_id:05d}/
                     Wrist/
                         ACC/
-                            X.npy  # (N, T)
-                            Y.npy
-                            Z.npy
-                            labels.npy  # (N,)
+                            X.npy  # (N, T, 3) - センサーデータ (X, Y, Z軸)
+                            Y.npy  # (N,) - ラベル
 
         Args:
             data: (features, labels, subjects) のタプル
@@ -417,22 +415,13 @@ class PAALPreprocessor(BasePreprocessor):
             subject_dir = save_dir / f"USER{subject_id:05d}" / "Wrist" / "ACC"
             subject_dir.mkdir(parents=True, exist_ok=True)
 
-            # X, Y, Z軸を個別に保存（float16で容量削減）
-            np.save(
-                subject_dir / "X.npy",
-                subject_features[:, 0, :].astype(np.float16)
-            )
-            np.save(
-                subject_dir / "Y.npy",
-                subject_features[:, 1, :].astype(np.float16)
-            )
-            np.save(
-                subject_dir / "Z.npy",
-                subject_features[:, 2, :].astype(np.float16)
-            )
+            # X.npy: 3チャンネル全てのセンサーデータ (N, 3, T) → (N, T, 3) → float16
+            # 他のデータセットと形式を合わせるため、(N, T, 3)の形で保存
+            X_data = np.transpose(subject_features, (0, 2, 1)).astype(np.float16)  # (N, T, 3)
+            np.save(subject_dir / "X.npy", X_data)
 
-            # ラベルを保存
-            np.save(subject_dir / "labels.npy", subject_labels)
+            # Y.npy: ラベル (N,)
+            np.save(subject_dir / "Y.npy", subject_labels)
 
             logger.debug(
                 f"Saved {len(subject_features)} windows for USER{subject_id:05d}"
@@ -443,10 +432,8 @@ class PAALPreprocessor(BasePreprocessor):
             users_dict[user_id_str] = {
                 "sensor_modalities": {
                     "Wrist/ACC": {
-                        "X_shape": [len(subject_labels), self.window_size],
-                        "Y_shape": [len(subject_labels), self.window_size],
-                        "Z_shape": [len(subject_labels), self.window_size],
-                        "labels_shape": [len(subject_labels)],
+                        "X_shape": [len(subject_labels), self.window_size, 3],
+                        "Y_shape": [len(subject_labels)],
                         "num_windows": len(subject_labels),
                         "unique_labels": sorted([int(l) for l in np.unique(subject_labels)])
                     }
