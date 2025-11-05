@@ -57,14 +57,6 @@ DATASETS = {
             11: 'rope jumping'  # original label 24
         },
     },
-    "REALWORLD": {
-        "sensor_list": ["chest", "forearm", "thigh", "head", "shin", "upperarm", "waist"],
-        "n_classes": 8,
-        "labels": {
-            0: 'Walking', 1: 'Running', 2: 'Sitting', 3: 'Standing',
-            4: 'Lying', 5: 'Stairs up', 6: 'Stairs down', 7: 'Jumping'
-        },
-    },
     "MHEALTH": {
         "sensor_list": ["Chest", "LeftAnkle", "RightWrist"],
         "modalities": {
@@ -93,7 +85,7 @@ DATASETS = {
             "atr03": ["ACC", "GYRO", "QUAT"],
             "atr04": ["ACC", "GYRO", "QUAT"]
         },
-        "n_classes": 9,
+        "n_classes": 10,  # 9クラス + Undefined(-1)
         "sampling_rate": 30,  # Hz
         "original_sampling_rate": 30,  # Hz (リサンプリング不要)
         "has_undefined_class": True,  # ラベル-1が存在
