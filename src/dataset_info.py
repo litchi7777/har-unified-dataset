@@ -306,6 +306,41 @@ DATASETS = {
             8: 'Lying'
         },
     },
+    "PAAL": {
+        "sensor_list": ["Wrist"],
+        "modalities": ["ACC"],  # 加速度センサーのみ（3軸）
+        "n_classes": 24,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 32,  # Hz
+        "scale_factor": 0.015,  # 整数値からG単位への変換（8ビット分解能: ±2g）
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Blow Nose',
+            1: 'Brush Hair',
+            2: 'Brush Teeth',
+            3: 'Drink Water',
+            4: 'Dusting',
+            5: 'Eat Meal',
+            6: 'Ironing',
+            7: 'Open Bottle',
+            8: 'Open Box',
+            9: 'Phone Call',
+            10: 'Put On Jacket',
+            11: 'Put On Shoe',
+            12: 'Put On Glasses',
+            13: 'Salute',
+            14: 'Sit Down',
+            15: 'Sneeze/Cough',
+            16: 'Stand Up',
+            17: 'Take Off Jacket',
+            18: 'Take Off Shoe',
+            19: 'Take Off Glasses',
+            20: 'Type On Keyboard',
+            21: 'Washing Dishes',
+            22: 'Washing Hands',
+            23: 'Writing'
+        },
+    },
 }
 
 

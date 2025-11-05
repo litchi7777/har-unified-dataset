@@ -137,6 +137,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .paal import PAALPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',
