@@ -23,8 +23,12 @@ from scipy.signal import resample_poly
 
 from .base import BasePreprocessor
 from . import register_preprocessor
+from .common import download_file, extract_archive, cleanup_temp_files, check_dataset_exists
 
 logger = logging.getLogger(__name__)
+
+# PAALデータセットのダウンロードURL
+PAAL_URL = "https://zenodo.org/api/records/5785955/files-archive"
 
 
 @register_preprocessor('paal')
@@ -84,6 +88,103 @@ class PAALPreprocessor(BasePreprocessor):
     def get_dataset_name(self) -> str:
         """データセット名を返す"""
         return 'paal'
+
+    def download_dataset(self) -> None:
+        """
+        PAALデータセットをダウンロードして解凍
+
+        Zenodoから以下のファイルをダウンロード:
+        - data.zip (加速度データ)
+        - users.csv (ユーザー情報)
+        - ADLs.csv (アクティビティ一覧)
+        """
+        logger.info("=" * 80)
+        logger.info("Downloading PAAL dataset")
+        logger.info("=" * 80)
+
+        paal_raw_path = self.raw_data_path / self.dataset_name
+
+        # 既にデータが存在するかチェック
+        if check_dataset_exists(paal_raw_path, required_files=['*.csv']):
+            logger.warning(f"PAAL data already exists at {paal_raw_path}")
+            response = input("Do you want to re-download? (y/N): ")
+            if response.lower() != 'y':
+                logger.info("Skipping download")
+                return
+
+        try:
+            # 1. ダウンロード
+            logger.info("Step 1/2: Downloading archive from Zenodo")
+            paal_raw_path.parent.mkdir(parents=True, exist_ok=True)
+            zip_path = paal_raw_path.parent / 'paal_data.zip'
+            download_file(PAAL_URL, zip_path, desc='Downloading PAAL')
+
+            # 2. 解凍してデータ整理
+            logger.info("Step 2/2: Extracting and organizing data")
+            extract_to = paal_raw_path.parent / 'paal_temp'
+            extract_archive(zip_path, extract_to, desc='Extracting PAAL')
+            self._organize_paal_data(extract_to, paal_raw_path)
+
+            # クリーンアップ
+            cleanup_temp_files(extract_to)
+            if zip_path.exists():
+                zip_path.unlink()
+
+            logger.info("=" * 80)
+            logger.info(f"SUCCESS: PAAL dataset downloaded to {paal_raw_path}")
+            logger.info("=" * 80)
+
+        except Exception as e:
+            logger.error(f"Failed to download PAAL dataset: {e}", exc_info=True)
+            raise
+
+    def _organize_paal_data(self, extracted_path: Path, target_path: Path) -> None:
+        """
+        PAALデータを適切なディレクトリ構造に整理
+
+        解凍されたファイル:
+        - data.zip (内部にdataset/*.csvが含まれる)
+        - users.csv
+        - ADLs.csv
+
+        Args:
+            extracted_path: 解凍されたデータのパス
+            target_path: 整理後の保存先パス（data/raw/paal）
+        """
+        import shutil
+        import zipfile
+
+        logger.info(f"Organizing PAAL data from {extracted_path} to {target_path}")
+
+        # ターゲットディレクトリを作成
+        target_path.mkdir(parents=True, exist_ok=True)
+
+        # data.zipを解凍
+        data_zip = extracted_path / "data.zip"
+        if data_zip.exists():
+            logger.info("Extracting data.zip (accelerometer data)")
+            with zipfile.ZipFile(data_zip, 'r') as zip_ref:
+                zip_ref.extractall(extracted_path / "data_extracted")
+
+            # dataset/*.csvをターゲットに移動
+            dataset_dir = extracted_path / "data_extracted" / "dataset"
+            if dataset_dir.exists():
+                for csv_file in dataset_dir.glob("*.csv"):
+                    # ._で始まるMacOSの隠しファイルをスキップ
+                    if not csv_file.name.startswith('._'):
+                        shutil.copy(csv_file, target_path / csv_file.name)
+                logger.info(f"Copied {len(list(target_path.glob('*.csv')))} CSV files")
+            else:
+                raise FileNotFoundError(f"dataset directory not found in data.zip")
+
+        # users.csvとADLs.csvをコピー（オプション：参照用）
+        for meta_file in ['users.csv', 'ADLs.csv']:
+            src = extracted_path / meta_file
+            if src.exists():
+                shutil.copy(src, target_path / meta_file)
+                logger.debug(f"Copied {meta_file}")
+
+        logger.info(f"Data organized at: {target_path}")
 
     def clean_data(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
