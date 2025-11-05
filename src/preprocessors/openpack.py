@@ -209,12 +209,19 @@ class OpenPackPreprocessor(BasePreprocessor):
             user_id_str = csv_file.stem.split('-')[0]  # "U0101"
 
             try:
-                # U0101 -> 101 -> USER00101
-                # OpenPackのユーザーIDは4桁の数値（0101, 0102, ..., 0201, ...）
-                # そのままUSER + 5桁のゼロ埋めとして保存
-                original_user_id = int(user_id_str[1:])  # "U0101" -> 101
-                user_id = f"USER{original_user_id:05d}"  # 101 -> USER00101
-                logger.debug(f"Mapping {user_id_str} -> {user_id}")
+                # U0101 -> 101 -> USER00001
+                # OpenPackのユーザーIDは101-111, 201-210の範囲
+                # 101-111 -> USER00001-USER00011 (11人)
+                # 201-210 -> USER00012-USER00021 (10人)
+                original_user_id = int(user_id_str[1:])
+
+                if 101 <= original_user_id <= 111:
+                    user_id = f"USER{(original_user_id - 100):05d}"  # 101 -> USER00001, 111 -> USER00011
+                elif 201 <= original_user_id <= 210:
+                    user_id = f"USER{(original_user_id - 189):05d}"  # 201 -> USER00012, 210 -> USER00021
+                else:
+                    logger.warning(f"Unexpected user ID: {user_id_str}, skipping")
+                    continue
 
                 # データ読み込み
                 df = pd.read_csv(csv_file)
