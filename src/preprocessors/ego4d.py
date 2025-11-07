@@ -8,13 +8,12 @@ adjust_fps_Ego4d.py のロジックを本リポジトリの前処理フレーム
 - 連続区間ごとに実効サンプリング周波数を推定
 - 高レートの場合は等間隔再配置→LPF付き polyphase で目標レート（既定30Hz）へ変換
 - それ以外は目標レート等間隔へ線形補間
-- 1秒（目標レート分のサンプル数）非オーバーラップ窓に分割
+- 1秒（= window_size / target_sampling_rate）窓に分割し、configのstrideでスライド
 - 出力はセンサー "Head" の `ACC`/`GYRO` に分け、
   data/processed/ego4d/USERxxxxx/Head/{ACC|GYRO}/X.npy, Y.npy として保存
 
 備考:
-- Ego4D IMU にはアクティビティラベルが無いため、Y.npy にはウィンドウ開始時刻（秒）を保存する
-  （他データセットのラベルと互換ではない点に注意）。
+- Ego4D IMU にはアクティビティラベルが無いため、Y.npy には-1を保存する
 """
 
 from __future__ import annotations
@@ -124,7 +123,7 @@ class Ego4dPreprocessor(BasePreprocessor):
         - ego4d_src_root: CSV探索ルート（未指定時は raw_data_path/ego4d）
         - target_sampling_rate: 既定 30
         - window_size: 既定 30 (samples)
-        - stride: 既定 30 (非オーバーラップ)
+        - stride: 既定 30
         - max_gap_sec: 既定 1.0
         - min_dataset_span_sec: 既定 59/60
     """
@@ -336,22 +335,32 @@ class Ego4dPreprocessor(BasePreprocessor):
                 t_target = t0 + np.arange(n, dtype=np.float64) * dt
                 y_target_cols = [np.interp(t_target, t_sec, y).astype(np.float32) for y in y_cols_raw]
 
-            # 1秒窓（非オーバーラップ）
-            win_len = int(round(self.target_sampling_rate * 1.0))
+            # 1秒窓
+            win_len = int(self.window_size)     # 例: 30
+            stride = int(self.stride)           # 例: 30 (デフォルトは非オーバーラップ)
+
             total = t_target.size
-            n_win = total // win_len
-            if n_win == 0:
+            if total < win_len:
                 continue
-            n_use = n_win * win_len
 
-            y_target_cols = [y[:n_use] for y in y_target_cols]
-            t_target = t_target[:n_use]
+            windows_part = []
+            t0_part = []
 
-            sig = np.stack(y_target_cols, axis=1).reshape(n_win, win_len, len(COLS_IMU)).astype(np.float32)
-            t_w0 = t_target.reshape(n_win, win_len)[:, 0].astype(np.float32)
+            # 0, stride, 2*stride, ... でスライド
+            for start in range(0, total - win_len + 1, stride):
+                end = start + win_len
+                # チャンネル方向にまとめる (win_len, 6)
+                segment = np.stack([y[start:end] for y in y_target_cols], axis=1)
+                windows_part.append(segment.astype(np.float32))
+                # このウィンドウの開始時刻（秒）
+                t0_part.append(t_target[start].astype(np.float32))
 
-            windows.append(sig)
-            t0_list.append(t_w0)
+            if not windows_part:
+                continue
+
+            windows.append(np.stack(windows_part, axis=0))   # (n_win, win_len, 6)
+            t0_list.append(np.array(t0_part, dtype=np.float32))
+
 
         if not windows:
             return np.empty((0, self.window_size, 6), dtype=np.float32), np.empty((0,), dtype=np.float32)
@@ -359,7 +368,7 @@ class Ego4dPreprocessor(BasePreprocessor):
         signals = np.concatenate(windows, axis=0)  # (N, W, 6)
         start_time_sec = np.concatenate(t0_list, axis=0)  # (N,)
 
-        # 必要に応じてウィンドウサイズ/ストライドを再整形（既定は1秒窓/非オーバーラップのため多くの場合一致）
+        # 必要に応じてウィンドウサイズ/ストライドを再整形
         if signals.shape[1] != self.window_size:
             # 窓長不一致時は再スライス（安全策: 先頭 window_size に切り詰め）
             trim = min(self.window_size, signals.shape[1])
