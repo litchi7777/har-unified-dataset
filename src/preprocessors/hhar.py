@@ -1,0 +1,510 @@
+"""
+HHAR (Heterogeneity Human Activity Recognition) データセット前処理
+
+スマートフォン／スマートウォッチの加速度・ジャイロデータを
+一定レートにリサンプリングし、スライディングウィンドウへ変換する。
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Dict, Any, Tuple, List
+import logging
+import json
+
+import numpy as np
+import pandas as pd
+
+from .base import BasePreprocessor
+from . import register_preprocessor
+from ..dataset_info import DATASETS
+from .common import download_file, extract_zip, check_dataset_exists
+from .utils import create_sliding_windows, resample_timeseries
+
+logger = logging.getLogger(__name__)
+
+HHAR_ARCHIVE_URL = "https://archive.ics.uci.edu/static/public/344/heterogeneity+activity+recognition.zip"
+
+
+def _mode_label(values: pd.Series) -> int:
+    """DataFrame groupby 用: 最頻ラベルを返す"""
+    counts = values.value_counts()
+    return int(counts.index[0])
+
+
+@register_preprocessor('hhar')
+class HHARPreprocessor(BasePreprocessor):
+    """
+    HHAR データセット前処理
+
+    設定例:
+        - raw_data_path / processed_data_path
+        - hhar_src_root: 生データ配置場所（既定: raw_data_path/hhar）
+        - target_sampling_rate (Hz) 既定 30
+        - window_size (samples)     既定 target_sampling_rate
+        - stride (samples)          既定 window_size
+        - max_gap_sec               既定 1.0
+        - min_segment_sec           既定 5
+    """
+
+    def __init__(self, config: Dict[str, Any]):
+        super().__init__(config)
+
+        dataset_meta = DATASETS.get('HHAR', {})
+
+        self.target_sampling_rate = float(config.get('target_sampling_rate', dataset_meta.get('sampling_rate', 30.0)))
+        self.window_size = int(config.get('window_size', int(self.target_sampling_rate * 5.0)))
+        self.stride = int(config.get('stride', self.window_size))
+        self.max_gap_sec = float(config.get('max_gap_sec', 1.0))
+        self.min_segment_sec = float(config.get('min_segment_sec', 0.9933333))
+        self.scale_factor = dataset_meta.get('scale_factor', 9.8)
+
+        labels_meta = dataset_meta.get('labels', {})
+        self.undefined_label = -1
+        self.label_name_by_id = {int(k): v for k, v in labels_meta.items()}
+        self.activity_to_label = {
+            v.lower(): int(k)
+            for k, v in labels_meta.items()
+        }
+        # データセット固有の null クラス
+        self.activity_to_label.setdefault('null', self.undefined_label)
+
+        self.sensor_file_map = {
+            'Phones': {
+                'ACC': 'Phones_accelerometer.csv',
+                'GYRO': 'Phones_gyroscope.csv',
+            },
+            'Watch': {
+                'ACC': 'Watch_accelerometer.csv',
+                'GYRO': 'Watch_gyroscope.csv',
+            },
+        }
+
+        self.src_root = Path(config.get('hhar_src_root', self.raw_data_path / self.dataset_name))
+        self.activity_dir = self.src_root / 'Activity recognition exp'
+
+        self._user_to_person_id: Dict[str, int] = {}
+
+    def get_dataset_name(self) -> str:
+        return 'hhar'
+
+    def download_dataset(self) -> None:
+        required_files = [
+            str(Path('Activity recognition exp') / fname)
+            for block in self.sensor_file_map.values()
+            for fname in block.values()
+        ]
+
+        if check_dataset_exists(self.src_root, required_files=required_files):
+            logger.info(f"HHAR raw files already present under {self.src_root}, skipping download")
+            return
+
+        self.src_root.mkdir(parents=True, exist_ok=True)
+        archive_path = self.src_root / 'heterogeneity+activity+recognition.zip'
+
+        if not archive_path.exists():
+            download_file(HHAR_ARCHIVE_URL, archive_path, desc='HHAR dataset')
+        else:
+            logger.info(f"Archive already exists: {archive_path}")
+
+        # 外側ZIPを展開
+        extract_zip(archive_path, self.src_root, desc='Extract HHAR outer archive')
+
+        # 内側ZIP（Activity recognition / Still）を展開
+        for nested_name in ['Activity recognition exp.zip', 'Still exp.zip']:
+            nested_path = self.src_root / nested_name
+            if nested_path.exists():
+                extract_zip(nested_path, self.src_root, desc=f'Extract {nested_name}')
+
+        if not check_dataset_exists(self.src_root, required_files=required_files):
+            raise FileNotFoundError(
+                "HHAR raw CSV files were not found after extraction. "
+                "Please verify the archive contents."
+            )
+
+    def load_raw_data(self) -> Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]]]:
+        if not self.activity_dir.exists():
+            raise FileNotFoundError(f"HHAR activity directory not found: {self.activity_dir}")
+
+        combined_streams: Dict[
+            Tuple[str, str],
+            Dict[str, Tuple[np.ndarray, np.ndarray, np.ndarray]]
+        ] = {}
+
+        for sensor_family, modality_map in self.sensor_file_map.items():
+            for modality_name, csv_name in modality_map.items():
+                csv_path = self.activity_dir / csv_name
+                if not csv_path.exists():
+                    logger.warning(f"Missing HHAR file: {csv_path}")
+                    continue
+
+                logger.info(f"Loading {sensor_family} {modality_name} from {csv_path}")
+                stream_map = self._load_sensor_stream(csv_path)
+
+                for key, stream in stream_map.items():
+                    device_stream = combined_streams.setdefault(key, {})
+                    device_stream[modality_name] = stream
+
+                logger.info(
+                    f"Collected {len(stream_map)} sensor streams for {sensor_family}/{modality_name}"
+                )
+
+        data: Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]]] = {}
+
+        for (user_token, device_name), modality_dict in combined_streams.items():
+            if 'ACC' not in modality_dict or 'GYRO' not in modality_dict:
+                logger.warning(
+                    f"Skipping {user_token}/{device_name}: missing modality for 6-axis sync"
+                )
+                continue
+
+            windows, labels = self._build_joint_windows(
+                modality_dict['ACC'],
+                modality_dict['GYRO']
+            )
+
+            if windows.size == 0:
+                logger.warning(
+                    f"No synchronized windows produced for {user_token}/{device_name}"
+                )
+                continue
+
+            person_id = self._get_or_assign_person_id(user_token)
+            person_entry = data.setdefault(person_id, {})
+            device_entry = person_entry.setdefault(device_name, {})
+            device_entry['ACC_GYRO'] = (windows, labels)
+            logger.info(
+                f"{user_token}/{device_name}: synchronized windows {windows.shape[0]}"
+            )
+
+        if not data:
+            raise ValueError("HHAR preprocessing produced no synchronized windows. Check raw files and settings.")
+
+        return data
+
+    def clean_data(
+        self,
+        data: Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]]]
+    ) -> Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]]]:
+        # ウィンドウ化済みのため追加クリーニングは不要
+        return data
+
+    def extract_features(
+        self,
+        data: Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]]]
+    ) -> Dict[int, Dict[str, Dict[str, np.ndarray]]]:
+        result: Dict[int, Dict[str, Dict[str, np.ndarray]]] = {}
+
+        for person_id, device_dict in data.items():
+            person_result: Dict[str, Dict[str, np.ndarray]] = {}
+
+            for device_name, modality_dict in device_dict.items():
+                for modality_name, (windows, labels) in modality_dict.items():
+                    if windows.size == 0:
+                        continue
+                    # (N, W, 3) -> (N, 3, W)
+                    X = np.transpose(windows, (0, 2, 1)).astype(np.float32)
+                    if self.scale_factor and modality_name in ('ACC', 'ACC_GYRO'):
+                        if modality_name == 'ACC':
+                            X = X / self.scale_factor
+                        else:
+                            X[:, :3, :] = X[:, :3, :] / self.scale_factor
+                    X = X.astype(np.float16)
+                    Y = labels.astype(np.int32)
+                    key = f"{device_name}/{modality_name}"
+                    person_result[key] = {
+                        'X': X,
+                        'Y': Y,
+                    }
+
+            if person_result:
+                result[person_id] = person_result
+
+        if not result:
+            raise ValueError("No HHAR features were extracted. Please check preprocessing logs.")
+
+        return result
+
+    def save_processed_data(self, data) -> None:
+        base_path = self.processed_data_path / self.dataset_name
+        base_path.mkdir(parents=True, exist_ok=True)
+
+        stats = {
+            'dataset': self.dataset_name,
+            'target_sampling_rate': self.target_sampling_rate,
+            'window_size': self.window_size,
+            'stride': self.stride,
+            'max_gap_sec': self.max_gap_sec,
+            'min_segment_sec': self.min_segment_sec,
+            'scale_factor': self.scale_factor,
+            'label_map': self.label_name_by_id,
+            'users': {},
+        }
+
+        for person_id, sensor_modality_data in data.items():
+            user_name = f"USER{person_id:05d}"
+            user_path = base_path / user_name
+            user_path.mkdir(parents=True, exist_ok=True)
+
+            user_stats = {'sensor_modalities': {}}
+
+            for sensor_modality_name, arrays in sensor_modality_data.items():
+                sensor_modality_path = user_path / sensor_modality_name
+                sensor_modality_path.mkdir(parents=True, exist_ok=True)
+
+                X = arrays['X']
+                Y = arrays['Y']
+
+                np.save(sensor_modality_path / 'X.npy', X)
+                np.save(sensor_modality_path / 'Y.npy', Y)
+
+                user_stats['sensor_modalities'][sensor_modality_name] = {
+                    'X_shape': list(X.shape),
+                    'Y_shape': list(Y.shape),
+                    'num_windows': int(len(Y)),
+                }
+
+                logger.info(f"Saved {user_name}/{sensor_modality_name}: X={X.shape}, Y={Y.shape}")
+
+            stats['users'][user_name] = user_stats
+
+        stats_path = base_path / 'dataset_stats.json'
+        with open(stats_path, 'w') as f:
+            json.dump(stats, f, indent=2)
+        logger.info(f"Saved HHAR dataset stats to {stats_path}")
+
+    # --------------------------------------------------------------------- #
+    # 内部ユーティリティ
+    # --------------------------------------------------------------------- #
+    def _get_or_assign_person_id(self, user_token: str) -> int:
+        if user_token not in self._user_to_person_id:
+            self._user_to_person_id[user_token] = len(self._user_to_person_id) + 1
+        return self._user_to_person_id[user_token]
+
+    def _load_sensor_stream(
+        self,
+        csv_path: Path,
+    ) -> Dict[Tuple[str, str], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+        usecols = ['Arrival_Time', 'x', 'y', 'z', 'User', 'Device', 'gt']
+        dtype = {
+            'Arrival_Time': np.int64,
+            'x': np.float32,
+            'y': np.float32,
+            'z': np.float32,
+            'User': 'string',
+            'Device': 'string',
+            'gt': 'string',
+        }
+
+        df = pd.read_csv(
+            csv_path,
+            usecols=usecols,
+            dtype=dtype,
+            low_memory=False
+        )
+
+        df = df.dropna(subset=['User', 'Device', 'gt'])
+        df['gt'] = df['gt'].str.strip().str.lower()
+
+        df = df[df['gt'].isin(self.activity_to_label.keys())]
+        df['label'] = df['gt'].map(self.activity_to_label).astype(np.int16)
+
+        grouped: Dict[Tuple[str, str], Tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+
+        for (user_token, device_name), group in df.groupby(['User', 'Device']):
+            group = group.sort_values('Arrival_Time')
+            if group['Arrival_Time'].duplicated().any():
+                group = group.groupby('Arrival_Time', as_index=False).agg({
+                    'x': 'mean',
+                    'y': 'mean',
+                    'z': 'mean',
+                    'label': _mode_label,
+                })
+
+            t_sec = (group['Arrival_Time'].to_numpy(np.float64)) / 1000.0
+            values = group[['x', 'y', 'z']].to_numpy(np.float32)
+            labels = group['label'].to_numpy(np.int16)
+
+            if t_sec.size < 2:
+                continue
+
+            grouped[(user_token, device_name)] = (t_sec, values, labels)
+
+        return grouped
+
+    def _split_segments(self, t_sec: np.ndarray) -> List[Tuple[int, int]]:
+        if t_sec.size < 2:
+            return []
+
+        dt = np.diff(t_sec)
+        split_points = np.where(dt > self.max_gap_sec)[0] + 1
+        indices = list(split_points) + [len(t_sec)]
+
+        segments: List[Tuple[int, int]] = []
+        start = 0
+        for end in indices:
+            if end - start < 2:
+                start = end
+                continue
+
+            duration = t_sec[end - 1] - t_sec[start]
+            if duration >= self.min_segment_sec:
+                segments.append((start, end))
+
+            start = end
+
+        return segments
+
+    def _build_joint_windows(
+        self,
+        acc_stream: Tuple[np.ndarray, np.ndarray, np.ndarray],
+        gyro_stream: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        acc_segments = self._resample_segments(acc_stream)
+        gyro_segments = self._resample_segments(gyro_stream)
+
+        if not acc_segments or not gyro_segments:
+            return (
+                np.empty((0, self.window_size, 6), dtype=np.float32),
+                np.empty((0,), dtype=np.int32)
+            )
+
+        return self._synchronize_segments(acc_segments, gyro_segments)
+
+    def _resample_segments(
+        self,
+        stream: Tuple[np.ndarray, np.ndarray, np.ndarray]
+    ) -> List[Dict[str, Any]]:
+        t_sec, values, labels = stream
+        segments_idx = self._split_segments(t_sec)
+        if not segments_idx:
+            return []
+
+        resampled_segments: List[Dict[str, Any]] = []
+        for start, end in segments_idx:
+            seg_t = t_sec[start:end]
+            seg_values = values[start:end]
+            seg_labels = labels[start:end]
+
+            dt_seg = np.diff(seg_t)
+            dt_seg = dt_seg[dt_seg > 0]
+            if dt_seg.size == 0:
+                continue
+            median_dt = float(np.median(dt_seg))
+            if median_dt <= 0:
+                continue
+            estimated_rate = 1.0 / median_dt
+            if estimated_rate <= 0:
+                continue
+            quantized_rate = max(5.0, round(estimated_rate / 5.0) * 5.0)
+            original_rate = quantized_rate
+
+            uniform_values, uniform_labels = resample_timeseries(
+                seg_values,
+                seg_labels,
+                original_rate=original_rate,
+                target_rate=self.target_sampling_rate,
+            )
+
+            if uniform_values.size == 0:
+                continue
+
+            resampled_segments.append({
+                'start': seg_t[0],
+                'values': uniform_values.astype(np.float32),
+                'labels': uniform_labels.astype(np.int16),
+            })
+
+        return resampled_segments
+
+    def _synchronize_segments(
+        self,
+        acc_segments: List[Dict[str, Any]],
+        gyro_segments: List[Dict[str, Any]],
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        windows_list: List[np.ndarray] = []
+        labels_list: List[np.ndarray] = []
+
+        i = j = 0
+        rate = self.target_sampling_rate
+        min_overlap_sec = max(
+            self.min_segment_sec,
+            self.window_size / rate
+        )
+
+        while i < len(acc_segments) and j < len(gyro_segments):
+            acc_seg = acc_segments[i]
+            gyro_seg = gyro_segments[j]
+
+            acc_start = acc_seg['start']
+            gyro_start = gyro_seg['start']
+            acc_end = acc_start + len(acc_seg['values']) / rate
+            gyro_end = gyro_start + len(gyro_seg['values']) / rate
+
+            overlap_start = max(acc_start, gyro_start)
+            overlap_end = min(acc_end, gyro_end)
+
+            if overlap_end - overlap_start >= min_overlap_sec:
+                acc_slice, acc_labels = self._slice_segment(acc_seg, overlap_start, overlap_end)
+                gyro_slice, _ = self._slice_segment(gyro_seg, overlap_start, overlap_end)
+
+                if acc_slice.size and gyro_slice.size:
+                    min_len = min(acc_slice.shape[0], gyro_slice.shape[0], acc_labels.shape[0])
+                    if min_len >= self.window_size:
+                        acc_slice = acc_slice[:min_len]
+                        gyro_slice = gyro_slice[:min_len]
+                        acc_labels = acc_labels[:min_len]
+
+                        fused = np.concatenate([acc_slice, gyro_slice], axis=1)
+                        windows, window_labels = create_sliding_windows(
+                            fused,
+                            acc_labels,
+                            window_size=self.window_size,
+                            stride=self.stride,
+                            drop_last=True
+                        )
+
+                        if windows.size:
+                            windows_list.append(windows.astype(np.float32))
+                            labels_list.append(window_labels.astype(np.int32))
+
+            if acc_end <= gyro_end:
+                i += 1
+            else:
+                j += 1
+
+        if not windows_list:
+            return (
+                np.empty((0, self.window_size, 6), dtype=np.float32),
+                np.empty((0,), dtype=np.int32)
+            )
+
+        windows = np.concatenate(windows_list, axis=0)
+        window_labels = np.concatenate(labels_list, axis=0)
+        return windows, window_labels
+
+    def _slice_segment(
+        self,
+        segment: Dict[str, Any],
+        overlap_start: float,
+        overlap_end: float,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        rate = self.target_sampling_rate
+        seg_start = segment['start']
+        values = segment['values']
+        labels = segment['labels']
+
+        start_offset = max(0.0, overlap_start - seg_start)
+        end_offset = max(0.0, overlap_end - seg_start)
+
+        start_idx = int(np.round(start_offset * rate))
+        end_idx = int(np.round(end_offset * rate))
+        end_idx = min(end_idx, len(values))
+
+        if end_idx - start_idx <= 0:
+            return np.empty((0, values.shape[1]), dtype=np.float32), np.empty((0,), dtype=np.int32)
+
+        return (
+            values[start_idx:end_idx],
+            labels[start_idx:end_idx].astype(np.int32)
+        )
