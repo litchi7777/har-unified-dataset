@@ -142,6 +142,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .wisdm import WISDMPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',

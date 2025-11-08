@@ -29,6 +29,23 @@ DATASETS = {
             17: 'Jumping', 18: 'PlayingBasketball'
         },
     },
+    "WISDM": {
+        "sensor_list": ["Phone", "Watch"],
+        "modalities": ["ACC", "GYRO"],
+        "n_classes": 18,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 20,  # Hz
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
+        "has_undefined_class": False,
+        "labels": {
+            0: "Walking", 1: "Jogging", 2: "Stairs",
+            3: "Sitting", 4: "Standing", 5: "Typing",
+            6: "BrushingTeeth", 7: "EatingSoup", 8: "EatingChips",
+            9: "EatingPasta", 10: "Drinking", 11: "EatingSandwich",
+            12: "Kicking", 13: "Catching", 14: "Dribbling",
+            15: "Writing", 16: "Clapping", 17: "FoldingClothes"
+        },
+    },
     "PAMAP2": {
         "sensor_list": ["hand", "chest", "ankle"],
         "modalities": {
