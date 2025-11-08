@@ -29,6 +29,28 @@ DATASETS = {
             17: 'Jumping', 18: 'PlayingBasketball'
         },
     },
+    "HHAR": {
+        "sensor_list": [
+            "nexus4_1", "nexus4_2", "s3_1", "s3_2",
+            "s3mini_1", "s3mini_2", "samsungold_1", "samsungold_2",
+            "gear_1", "gear_2", "lgwatch_1", "lgwatch_2"
+        ],
+        "modalities": ["ACC", "GYRO"],
+        "n_classes": 6,
+        "sampling_rate": 60,  # Hz (前処理での目標レート)
+        "original_sampling_rate": None,  # デバイスごとに異なる
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
+        "has_undefined_class": True,  # gt='null' を -1 で扱う
+        "labels": {
+            -1: "Undefined",
+            0: "Bike",
+            1: "Sit",
+            2: "Stand",
+            3: "Walk",
+            4: "StairsUp",
+            5: "StairsDown",
+        },
+    },
     "PAMAP2": {
         "sensor_list": ["hand", "chest", "ankle"],
         "modalities": {

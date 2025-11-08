@@ -142,6 +142,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .hhar import HHARPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',
