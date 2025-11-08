@@ -1,14 +1,3 @@
-"""
-RealWorld データセット前処理
-
-RealWorld データセット (2016):
-- 8種類の身体活動
-- 15人の被験者
-- 7つのセンサー位置（Chest, Forearm, Head, Shin, Thigh, UpperArm, Waist）
-- サンプリングレート: 50Hz
-- 3軸加速度、ジャイロ、磁力計センサー
-"""
-
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -46,10 +35,11 @@ class RealWorldPreprocessor(BasePreprocessor):
         self.num_sensors = 7
 
         # センサー名（RealWorldの命名規則に合わせる）
+        # 実データ上はすべて小文字(head, chest, ...)なので、ここをlower()して使う
         self.sensor_names = ['Chest', 'Forearm', 'Head', 'Shin', 'Thigh', 'UpperArm', 'Waist']
 
-        # モダリティ
-        self.modality_names = ['ACC', 'GYRO', 'MAG']
+        # モダリティ（実データだと acc / gyr / mag / gps があるが、ここでは3つだけ扱う）
+        self.modality_names = ['ACC', 'GYR', 'MAG']
 
         # 各モダリティは3軸（x, y, z）
         self.channels_per_modality = 3
@@ -66,7 +56,7 @@ class RealWorldPreprocessor(BasePreprocessor):
         self.scale_factor = DATASETS.get('REALWORLD', {}).get('scale_factor', None)
 
         # 活動名マッピング（ディレクトリ名 → ラベルID）
-        # RealWorldデータセットのディレクトリ名は小文字
+        # RealWorldデータセットの活動名は小文字
         self.activity_mapping = {
             'climbingdown': 0,
             'climbingup': 1,
@@ -124,60 +114,82 @@ class RealWorldPreprocessor(BasePreprocessor):
             logger.error(f"Error downloading dataset: {e}")
             raise
 
+    # ★ここを書き換えた★
     def _load_sensor_data(self, proband_path: Path, sensor: str, modality: str) -> pd.DataFrame:
         """
-        特定のセンサー×モダリティのCSVデータを読み込む
+        実際のRealWorld2016配布形式（activityごとのzipの中にsensorごとのcsvがある）に対応したローダ
+
+        例:
+            proband1/data/acc_climbingdown_csv.zip
+                ├── acc_climbingdown_head.csv
+                ├── acc_climbingdown_waist.csv
+                └── ...
+        という構造を想定する。
 
         Args:
-            proband_path: 被験者のディレクトリパス
-            sensor: センサー名（例: 'chest'）
-            modality: モダリティ名（例: 'acc'）
+            proband_path: 被験者のディレクトリパス (…/proband1)
+            sensor: センサー名（例: 'Chest'）
+            modality: モダリティ名（例: 'ACC'）
 
         Returns:
-            センサーデータのDataFrame（columns: timestamp, x, y, z）
+            指定したセンサー×モダリティに該当するすべてのactivityを縦連結したDataFrame
         """
-        # RealWorldのファイル名は小文字
-        sensor_lower = sensor.lower()
-        modality_lower = modality.lower()
+        sensor_lower = sensor.lower()     # chest, head, ...
+        modality_lower = modality.lower() # acc, gyr, mag
 
-        # ファイルパス例: proband1/data/acc_chest_csv/
-        data_dir = proband_path / 'data' / f'{modality_lower}_{sensor_lower}_csv'
-
-        # zipファイルの場合
+        data_dir = proband_path / 'data'
         if not data_dir.exists():
-            zip_path = proband_path / 'data' / f'{modality_lower}_{sensor_lower}_csv.zip'
-            if zip_path.exists():
-                # 一時的に解凍
-                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                    zip_ref.extractall(proband_path / 'data')
-
-        if not data_dir.exists():
-            logger.warning(f"Sensor data not found: {data_dir}")
+            logger.warning(f"Data dir not found: {data_dir}")
             return None
 
-        # CSVファイルを読み込み（複数ファイルがある場合は結合）
-        csv_files = sorted(data_dir.glob('*.csv'))
+        # proband1/data 内の「acc_***_csv.zip」を全部見る
+        pattern = f"{modality_lower}_*_csv.zip"
+        zip_files = sorted(data_dir.glob(pattern))
 
-        if not csv_files:
-            logger.warning(f"No CSV files found in {data_dir}")
+        if not zip_files:
+            logger.warning(f"No {modality_lower} zip files found in {data_dir}")
             return None
 
-        # 全CSVファイルを結合
-        dfs = []
-        for csv_file in csv_files:
+        dfs: List[pd.DataFrame] = []
+
+        for zip_path in zip_files:
+            # zipファイル名から activity を取る: acc_climbingdown_csv.zip → climbingdown
+            # ["acc", "climbingdown", "csv"]
+            parts = zip_path.stem.split('_')
+            activity = None
+            if len(parts) >= 2:
+                activity = parts[1]  # climbingdown, walking, ...
+
             try:
-                df = pd.read_csv(csv_file)
-                # 活動名を抽出（ファイル名に含まれている）
-                # 例: acc_climbingdown_csv.csv -> climbingdown
-                activity = csv_file.stem.split('_')[1] if '_' in csv_file.stem else None
-                if activity:
-                    df['activity'] = activity
-                dfs.append(df)
+                with zipfile.ZipFile(zip_path, 'r') as zf:
+                    # このzipに入っているcsvのうち、このセンサーのものだけ読む
+                    # 例: acc_climbingdown_head.csv
+                    target_suffix = f"_{sensor_lower}.csv"  # "_head.csv"
+                    for member in zf.namelist():
+                        if not member.lower().endswith(".csv"):
+                            continue
+                        if not member.lower().endswith(target_suffix):
+                            continue
+
+                        with zf.open(member) as fp:
+                            df = pd.read_csv(fp)
+
+                        # カラム名のゆらぎに対応
+                        # RealWorldは多くが attr_time, attr_x, attr_y, attr_z だが
+                        # 他にも timestamp, x, y, z がある
+                        # ここではそのままdfを返し、上位でx,y,z列を拾う
+                        if activity:
+                            df["activity"] = activity
+                        dfs.append(df)
+
             except Exception as e:
-                logger.warning(f"Error reading {csv_file}: {e}")
+                logger.warning(f"Error reading zip {zip_path}: {e}")
                 continue
 
         if not dfs:
+            logger.warning(
+                f"No CSV found for sensor={sensor_lower}, modality={modality_lower} in {data_dir}"
+            )
             return None
 
         combined_df = pd.concat(dfs, ignore_index=True)
@@ -236,8 +248,6 @@ class RealWorldPreprocessor(BasePreprocessor):
                         continue
 
                     # センサーデータ抽出（x, y, z列）
-                    # RealWorldのCSV: attr_time, attr_x, attr_y, attr_z
-                    # または: timestamp, x, y, z
                     xyz_columns = [col for col in df.columns if col in ['attr_x', 'attr_y', 'attr_z', 'x', 'y', 'z']]
 
                     if len(xyz_columns) < 3:
@@ -278,12 +288,6 @@ class RealWorldPreprocessor(BasePreprocessor):
     ) -> Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]]]:
         """
         データのクリーニングとリサンプリング
-
-        Args:
-            data: {person_id: {sensor: {modality: (data, labels)}}}
-
-        Returns:
-            クリーニング・リサンプリング済みデータ
         """
         cleaned = {}
 
@@ -337,12 +341,6 @@ class RealWorldPreprocessor(BasePreprocessor):
     ) -> Dict[int, Dict[str, Dict[str, np.ndarray]]]:
         """
         特徴抽出（センサー×モダリティごとのウィンドウ化）
-
-        Args:
-            data: {person_id: {sensor: {modality: (data, labels)}}}
-
-        Returns:
-            {person_id: {sensor/modality: {'X': data, 'Y': labels}}}
         """
         processed = {}
 
@@ -365,7 +363,6 @@ class RealWorldPreprocessor(BasePreprocessor):
                         drop_last=False,
                         pad_last=True
                     )
-                    # windowed_data: (num_windows, window_size, 3)
 
                     # スケーリング（必要に応じて）
                     if self.scale_factor is not None:
@@ -402,14 +399,6 @@ class RealWorldPreprocessor(BasePreprocessor):
     ) -> None:
         """
         処理済みデータを保存
-
-        Args:
-            data: {person_id: {sensor_modality: {'X': data, 'Y': labels}}}
-
-        保存形式:
-            data/processed/realworld/USER00001/Chest/ACC/X.npy, Y.npy
-            data/processed/realworld/USER00001/Chest/GYRO/X.npy, Y.npy
-            ...
         """
         import json
 
@@ -468,7 +457,6 @@ class RealWorldPreprocessor(BasePreprocessor):
         # 全体のメタデータを保存
         metadata_path = base_path / 'metadata.json'
         with open(metadata_path, 'w') as f:
-            # NumPy型をJSON互換に変換
             def convert_to_serializable(obj):
                 if isinstance(obj, np.integer):
                     return int(obj)

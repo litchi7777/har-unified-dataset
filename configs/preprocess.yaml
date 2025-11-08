@@ -184,6 +184,12 @@ datasets:
     original_sampling_rate: 50  # Hz (元データ)
     # sampling_rateは30Hzにリサンプリングされる
 
+  realworld:
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+    target_sampling_rate: 60
+    window_size: 60
+    stride: 12
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR
