@@ -315,6 +315,7 @@ class Ego4dPreprocessor(BasePreprocessor):
             fs_est = _robust_fs(t_sec)
             if not np.isfinite(fs_est) or fs_est <= 0:
                 continue
+            fs_est = round(fs_est)
 
             y_cols_raw = [part[c].to_numpy(np.float64) for c in COLS_IMU]
 
