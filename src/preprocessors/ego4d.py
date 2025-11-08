@@ -32,6 +32,7 @@ import shutil
 
 from .base import BasePreprocessor
 from . import register_preprocessor
+from ..dataset_info import DATASETS
 
 
 logger = logging.getLogger(__name__)
@@ -143,6 +144,7 @@ class Ego4dPreprocessor(BasePreprocessor):
             'GYRO': (0, 3),
             'ACC': (3, 6),
         }
+        self.scale_factor = DATASETS.get('EGO4D', {}).get('scale_factor', None)
 
         # 入力ルート（未指定なら data/raw/ego4d 配下を想定）
         self.src_root = Path(config.get('ego4d_src_root', self.raw_data_path / self.dataset_name))
@@ -399,6 +401,9 @@ class Ego4dPreprocessor(BasePreprocessor):
             for modality, (ch_start, ch_end) in self.modalities.items():
                 key = f"{self.sensor_name}/{modality}"
                 X_mod = X[:, ch_start:ch_end, :]  # (N, 3, W)
+                if modality == 'ACC' and self.scale_factor is not None:
+                    X_mod = (X_mod.astype(np.float32) / self.scale_factor).astype(np.float16)
+                    logger.info(f"Applied scale_factor={self.scale_factor} to {key}")
                 person_dict[key] = {
                     'X': X_mod,
                     'Y': np.full((X_mod.shape[0],), -1, dtype=np.int32),
@@ -421,6 +426,7 @@ class Ego4dPreprocessor(BasePreprocessor):
             'target_sampling_rate': self.target_sampling_rate,
             'window_size': self.window_size,
             'stride': self.stride,
+            'scale_factor': self.scale_factor,
             'note': 'Y.npy stores -1 as undefined activity label (no labels provided).',
             'users': {},
         }
@@ -456,5 +462,3 @@ class Ego4dPreprocessor(BasePreprocessor):
         with open(stats_path, 'w') as f:
             json.dump(total_stats, f, indent=2)
         logger.info(f"Saved dataset statistics to {stats_path}")
-
-

@@ -263,6 +263,20 @@ DATASETS = {
             16: 'Toggle Switch'
         },
     },
+    "EGO4D": {
+        "sensor_list": ["Head"],
+        "modalities": {
+            "Head": ["ACC", "GYRO"]
+        },
+        "n_classes": 0,  # Ego4D IMU にはアクティビティラベルが無い
+        "sampling_rate": 30,  # Hz (前処理での目標レート)
+        "original_sampling_rate": None,  # CSV ごとに異なるため未定義
+        "scale_factor": 9.8,  # m/s^2 -> G に変換
+        "has_undefined_class": True,
+        "labels": {
+            -1: 'Undefined'  # Ego4D IMU は全サンプル未定義ラベル
+        },
+    },
 }
 
 
