@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple, List, Optional
 import logging
 import zipfile
 import requests
@@ -115,7 +115,7 @@ class RealWorldPreprocessor(BasePreprocessor):
             raise
 
     # ★ここを書き換えた★
-    def _load_sensor_data(self, proband_path: Path, sensor: str, modality: str) -> pd.DataFrame:
+    def _load_sensor_data(self, proband_path: Path, sensor: str, modality: str) -> Optional[Dict[str, List[pd.DataFrame]]]:
         """
         実際のRealWorld2016配布形式（activityごとのzipの中にsensorごとのcsvがある）に対応したローダ
 
@@ -132,7 +132,7 @@ class RealWorldPreprocessor(BasePreprocessor):
             modality: モダリティ名（例: 'ACC'）
 
         Returns:
-            指定したセンサー×モダリティに該当するすべてのactivityを縦連結したDataFrame
+            activity名をキー、当該activityのDataFrameリストを値とする辞書
         """
         sensor_lower = sensor.lower()     # chest, head, ...
         modality_lower = modality.lower() # acc, gyr, mag
@@ -150,7 +150,7 @@ class RealWorldPreprocessor(BasePreprocessor):
             logger.warning(f"No {modality_lower} zip files found in {data_dir}")
             return None
 
-        dfs: List[pd.DataFrame] = []
+        activity_chunks: Dict[str, List[pd.DataFrame]] = {}
 
         for zip_path in zip_files:
             # zipファイル名から activity を取る: acc_climbingdown_csv.zip → climbingdown
@@ -166,10 +166,18 @@ class RealWorldPreprocessor(BasePreprocessor):
                     # 例: acc_climbingdown_head.csv
                     target_suffix = f"_{sensor_lower}.csv"  # "_head.csv"
                     for member in zf.namelist():
+                        name_lower = member.lower()
                         if not member.lower().endswith(".csv"):
                             continue
                         if not member.lower().endswith(target_suffix):
                             continue
+
+                        if modality_lower == 'gyr':
+                            if not ('gyro' in name_lower or 'gyroscope' in name_lower):
+                                continue
+                        elif modality_lower == 'acc':
+                            if not ('acc' in name_lower or 'accelerometer' in name_lower):
+                                continue
 
                         with zf.open(member) as fp:
                             df = pd.read_csv(fp)
@@ -180,20 +188,23 @@ class RealWorldPreprocessor(BasePreprocessor):
                         # ここではそのままdfを返し、上位でx,y,z列を拾う
                         if activity:
                             df["activity"] = activity
-                        dfs.append(df)
+                        activity_chunks.setdefault(activity or "unknown", []).append(df)
 
             except Exception as e:
                 logger.warning(f"Error reading zip {zip_path}: {e}")
                 continue
 
-        if not dfs:
+        if not activity_chunks:
             logger.warning(
                 f"No CSV found for sensor={sensor_lower}, modality={modality_lower} in {data_dir}"
             )
             return None
 
-        combined_df = pd.concat(dfs, ignore_index=True)
-        return combined_df
+        combined_chunks: Dict[str, List[pd.DataFrame]] = {}
+        for activity_name, dfs in activity_chunks.items():
+            combined_chunks[activity_name] = [pd.concat(dfs, ignore_index=True)]
+
+        return combined_chunks
 
     def load_raw_data(self) -> Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]]]:
         """
@@ -219,6 +230,8 @@ class RealWorldPreprocessor(BasePreprocessor):
                 "Expected structure: data/raw/realworld/realworld2016_dataset/proband1/"
             )
 
+        fused_modality_name = 'ACC_GYR'
+        fuse_sources = ('ACC', 'GYR')
         result = {}
 
         # proband1～proband15を読み込み
@@ -231,56 +244,225 @@ class RealWorldPreprocessor(BasePreprocessor):
 
             logger.info(f"Loading USER{person_id:05d} from {proband_path.name}")
 
-            result[person_id] = {}
+            person_entry: Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]] = {}
 
             # 各センサーについて処理
             for sensor in self.sensor_names:
-                result[person_id][sensor] = {}
+                sensor_data_store: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
+                modality_chunks: Dict[str, Dict[str, List[pd.DataFrame]]] = {}
 
-                # 各モダリティについて処理
                 for modality in self.modality_names:
-                    df = self._load_sensor_data(proband_path, sensor, modality)
+                    activity_chunks = self._load_sensor_data(proband_path, sensor, modality)
 
-                    if df is None or len(df) == 0:
+                    if not activity_chunks:
                         logger.warning(
                             f"USER{person_id:05d}/{sensor}/{modality}: No data loaded"
                         )
                         continue
 
-                    # センサーデータ抽出（x, y, z列）
-                    xyz_columns = [col for col in df.columns if col in ['attr_x', 'attr_y', 'attr_z', 'x', 'y', 'z']]
+                    modality_chunks[modality] = activity_chunks
 
-                    if len(xyz_columns) < 3:
-                        logger.warning(
-                            f"USER{person_id:05d}/{sensor}/{modality}: "
-                            f"Expected 3 xyz columns, found {len(xyz_columns)}"
+                    # 磁気など単独モダリティは従来通り保存
+                    if modality not in fuse_sources:
+                        combined_df = pd.concat(
+                            [fragment for fragments in activity_chunks.values() for fragment in fragments],
+                            ignore_index=True
                         )
-                        continue
+                        extracted = self._extract_xyz_data_with_labels(combined_df)
+                        if extracted is None:
+                            continue
+                        sensor_data, labels = extracted
+                        sensor_data_store[modality] = (sensor_data, labels)
+                        logger.info(
+                            f"  {sensor}/{modality}: {sensor_data.shape}, "
+                            f"Labels: {np.unique(labels)}"
+                        )
 
-                    # x, y, z データを抽出
-                    sensor_data = df[xyz_columns[:3]].values.astype(np.float32)
-
-                    # ラベル抽出（activityカラムから）
-                    if 'activity' in df.columns:
-                        labels = df['activity'].map(self.activity_mapping).values
-                        # NaNを-1に変換（未定義活動）
-                        labels = np.where(np.isnan(labels), -1, labels).astype(int)
-                    else:
-                        # activityカラムがない場合は全て-1
-                        labels = np.full(len(sensor_data), -1, dtype=int)
-
-                    result[person_id][sensor][modality] = (sensor_data, labels)
-
-                    logger.info(
-                        f"  {sensor}/{modality}: {sensor_data.shape}, "
-                        f"Labels: {np.unique(labels)}"
+                # ACC/GYR の同期データ
+                if all(src in modality_chunks for src in fuse_sources):
+                    fused = self._build_synchronized_activity_chunks(
+                        modality_chunks[fuse_sources[0]],
+                        modality_chunks[fuse_sources[1]],
+                        sensor
                     )
+                    if fused is not None:
+                        fused_data, fused_labels = fused
+                        sensor_data_store[fused_modality_name] = (fused_data, fused_labels)
+                        logger.info(
+                            f"  {sensor}/{fused_modality_name}: {fused_data.shape}, "
+                            f"Labels: {np.unique(fused_labels)}"
+                        )
+                else:
+                    missing = [src for src in fuse_sources if src not in modality_chunks]
+                    if missing:
+                        logger.warning(
+                            f"USER{person_id:05d}/{sensor}: missing modalities for fusion: {missing}"
+                        )
+
+                if sensor_data_store:
+                    person_entry[sensor] = sensor_data_store
+
+            if person_entry:
+                result[person_id] = person_entry
 
         if not result:
             raise ValueError("No data loaded. Please check the raw data directory structure.")
 
         logger.info(f"Total users loaded: {len(result)}")
         return result
+
+    def _extract_xyz_data_with_labels(
+        self,
+        df: pd.DataFrame
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        xyz_columns = self._get_xyz_columns(df)
+
+        if len(xyz_columns) < 3:
+            logger.warning("Could not find three axis columns in DataFrame")
+            return None
+
+        sensor_data = df[xyz_columns[:3]].values.astype(np.float32)
+
+        if 'activity' in df.columns:
+            activity_series = df['activity'].astype(str).str.lower()
+            labels = activity_series.map(self.activity_mapping).fillna(-1).astype(int).values
+        else:
+            labels = np.full(len(sensor_data), -1, dtype=int)
+
+        return sensor_data, labels
+
+    def _get_xyz_columns(self, df: pd.DataFrame) -> List[str]:
+        axis_candidates = {
+            'x': ['attr_x', 'x'],
+            'y': ['attr_y', 'y'],
+            'z': ['attr_z', 'z']
+        }
+
+        xyz_columns: List[str] = []
+        for axis in ('x', 'y', 'z'):
+            candidates = axis_candidates[axis]
+            column = next(
+                (col for col in df.columns if col.lower() in candidates),
+                None
+            )
+            if column:
+                xyz_columns.append(column)
+
+        return xyz_columns
+
+    def _get_time_column(self, df: pd.DataFrame) -> Optional[str]:
+        time_candidates = ['attr_time', 'timestamp', 'time', 'ts', 't']
+        return next((col for col in df.columns if col.lower() in time_candidates), None)
+
+    def _prepare_chunk_arrays(
+        self,
+        df: pd.DataFrame,
+        activity_name: Optional[str]
+    ) -> Optional[Tuple[Optional[np.ndarray], np.ndarray, int]]:
+        xyz_columns = self._get_xyz_columns(df)
+        if len(xyz_columns) < 3:
+            logger.warning("Chunk is missing xyz columns")
+            return None
+
+        values = df[xyz_columns[:3]].values.astype(np.float32)
+        time_col = self._get_time_column(df)
+        timestamps = df[time_col].to_numpy(np.float64) if time_col else None
+
+        candidate_activity = activity_name
+        if not candidate_activity and 'activity' in df.columns and len(df['activity']):
+            candidate_activity = str(df['activity'].iloc[0])
+
+        label_id = self.activity_mapping.get(str(candidate_activity).lower(), -1) if candidate_activity else -1
+
+        return timestamps, values, label_id
+
+    def _align_chunk_arrays(
+        self,
+        acc_time: Optional[np.ndarray],
+        acc_values: np.ndarray,
+        gyro_time: Optional[np.ndarray],
+        gyro_values: np.ndarray
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        if acc_values.size == 0 or gyro_values.size == 0:
+            return None
+
+        if acc_time is not None and gyro_time is not None:
+            start = max(acc_time[0], gyro_time[0])
+            end = min(acc_time[-1], gyro_time[-1])
+            if end <= start:
+                return None
+
+            acc_mask = (acc_time >= start) & (acc_time <= end)
+            gyro_mask = (gyro_time >= start) & (gyro_time <= end)
+
+            acc_values = acc_values[acc_mask]
+            gyro_values = gyro_values[gyro_mask]
+
+        min_len = min(len(acc_values), len(gyro_values))
+        if min_len == 0:
+            return None
+
+        return acc_values[:min_len], gyro_values[:min_len]
+
+    def _build_synchronized_activity_chunks(
+        self,
+        acc_chunks: Dict[str, List[pd.DataFrame]],
+        gyro_chunks: Dict[str, List[pd.DataFrame]],
+        sensor_name: str
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        shared_activities = sorted(set(acc_chunks.keys()) & set(gyro_chunks.keys()))
+        if not shared_activities:
+            logger.warning(f"{sensor_name}: no overlapping activities for ACC/GYR fusion")
+            return None
+
+        fused_segments: List[np.ndarray] = []
+        fused_labels: List[np.ndarray] = []
+
+        for activity in shared_activities:
+            acc_list = acc_chunks.get(activity, [])
+            gyro_list = gyro_chunks.get(activity, [])
+
+            if not acc_list or not gyro_list:
+                continue
+
+            if len(acc_list) != len(gyro_list):
+                logger.warning(
+                    f"{sensor_name}/{activity}: chunk count mismatch (ACC={len(acc_list)}, GYR={len(gyro_list)})"
+                )
+
+            pair_count = min(len(acc_list), len(gyro_list))
+
+            for idx in range(pair_count):
+                acc_chunk = acc_list[idx]
+                gyro_chunk = gyro_list[idx]
+
+                acc_prepared = self._prepare_chunk_arrays(acc_chunk, activity)
+                gyro_prepared = self._prepare_chunk_arrays(gyro_chunk, activity)
+
+                if acc_prepared is None or gyro_prepared is None:
+                    continue
+
+                acc_time, acc_values, label_id = acc_prepared
+                gyro_time, gyro_values, _ = gyro_prepared
+
+                aligned = self._align_chunk_arrays(acc_time, acc_values, gyro_time, gyro_values)
+                if aligned is None:
+                    logger.warning(f"{sensor_name}/{activity}: failed to align ACC/GYR chunk {idx}")
+                    continue
+
+                acc_aligned, gyro_aligned = aligned
+                fused_values = np.concatenate([acc_aligned, gyro_aligned], axis=1)
+                labels = np.full(len(fused_values), label_id, dtype=int)
+
+                fused_segments.append(fused_values.astype(np.float32))
+                fused_labels.append(labels)
+
+        if not fused_segments:
+            return None
+
+        fused_data = np.concatenate(fused_segments, axis=0)
+        fused_label_array = np.concatenate(fused_labels, axis=0)
+        return fused_data, fused_label_array
 
     def clean_data(
         self,
@@ -405,12 +587,14 @@ class RealWorldPreprocessor(BasePreprocessor):
         base_path = self.processed_data_path / self.dataset_name
         base_path.mkdir(parents=True, exist_ok=True)
 
+        output_modalities = list(dict.fromkeys(self.modality_names + ['ACC_GYR']))
+
         total_stats = {
             'dataset': self.dataset_name,
             'num_activities': self.num_activities,
             'num_sensors': self.num_sensors,
             'sensor_names': self.sensor_names,
-            'modality_names': self.modality_names,
+            'modality_names': output_modalities,
             'original_sampling_rate': self.original_sampling_rate,
             'target_sampling_rate': self.target_sampling_rate,
             'window_size': self.window_size,
