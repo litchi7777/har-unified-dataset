@@ -230,7 +230,6 @@ class RealWorldPreprocessor(BasePreprocessor):
                 "Expected structure: data/raw/realworld/realworld2016_dataset/proband1/"
             )
 
-        fused_modality_name = 'ACC_GYR'
         fuse_sources = ('ACC', 'GYR')
         result = {}
 
@@ -287,10 +286,15 @@ class RealWorldPreprocessor(BasePreprocessor):
                     )
                     if fused is not None:
                         fused_data, fused_labels = fused
-                        sensor_data_store[fused_modality_name] = (fused_data, fused_labels)
+                        acc_data = fused_data[:, :3]
+                        gyro_data = fused_data[:, 3:]
+                        sensor_data_store['ACC'] = (acc_data, fused_labels)
+                        sensor_data_store['GYR'] = (gyro_data, fused_labels)
                         logger.info(
-                            f"  {sensor}/{fused_modality_name}: {fused_data.shape}, "
-                            f"Labels: {np.unique(fused_labels)}"
+                            f"  {sensor}/ACC(sync): {acc_data.shape}, Labels: {np.unique(fused_labels)}"
+                        )
+                        logger.info(
+                            f"  {sensor}/GYR(sync): {gyro_data.shape}, Labels: {np.unique(fused_labels)}"
                         )
                 else:
                     missing = [src for src in fuse_sources if src not in modality_chunks]
@@ -587,14 +591,12 @@ class RealWorldPreprocessor(BasePreprocessor):
         base_path = self.processed_data_path / self.dataset_name
         base_path.mkdir(parents=True, exist_ok=True)
 
-        output_modalities = list(dict.fromkeys(self.modality_names + ['ACC_GYR']))
-
         total_stats = {
             'dataset': self.dataset_name,
             'num_activities': self.num_activities,
             'num_sensors': self.num_sensors,
             'sensor_names': self.sensor_names,
-            'modality_names': output_modalities,
+            'modality_names': self.modality_names,
             'original_sampling_rate': self.original_sampling_rate,
             'target_sampling_rate': self.target_sampling_rate,
             'window_size': self.window_size,
