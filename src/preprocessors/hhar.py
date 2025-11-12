@@ -85,6 +85,17 @@ class HHARPreprocessor(BasePreprocessor):
 
         self._user_to_person_id: Dict[str, int] = {}
 
+        # ★ 追加: デバイスごとの元サンプリングレートをここで定義
+        # HHARのWatchで欲しいものだけ固定。その他は従来の推定にフォールバックする
+        self.device_base_rates: Dict[str, float] = {
+            "gear_1": 100.0,
+            "gear": 100.0,      # 念のため
+            "gear_2": 100.0,
+            "lgwatch_1": 200.0,
+            "lgwatch_2": 200.0,
+            "lgwatch": 200.0,   # 念のため
+        }
+
     def get_dataset_name(self) -> str:
         return 'hhar'
 
@@ -158,12 +169,14 @@ class HHARPreprocessor(BasePreprocessor):
                 )
                 continue
 
-            windows, labels = self._build_joint_windows(
+            # ★ ここでデバイス名を渡すように変更
+            acc_windows, gyro_windows, labels = self._build_joint_windows(
                 modality_dict['ACC'],
-                modality_dict['GYRO']
+                modality_dict['GYRO'],
+                device_name=device_name,
             )
 
-            if windows.size == 0:
+            if acc_windows.size == 0 or gyro_windows.size == 0:
                 logger.warning(
                     f"No synchronized windows produced for {user_token}/{device_name}"
                 )
@@ -172,9 +185,10 @@ class HHARPreprocessor(BasePreprocessor):
             person_id = self._get_or_assign_person_id(user_token)
             person_entry = data.setdefault(person_id, {})
             device_entry = person_entry.setdefault(device_name, {})
-            device_entry['ACC_GYRO'] = (windows, labels)
+            device_entry['ACC'] = (acc_windows, labels)
+            device_entry['GYRO'] = (gyro_windows, labels)
             logger.info(
-                f"{user_token}/{device_name}: synchronized windows {windows.shape[0]}"
+                f"{user_token}/{device_name}: synchronized windows {labels.shape[0]}"
             )
 
         if not data:
@@ -204,11 +218,8 @@ class HHARPreprocessor(BasePreprocessor):
                         continue
                     # (N, W, 3) -> (N, 3, W)
                     X = np.transpose(windows, (0, 2, 1)).astype(np.float32)
-                    if self.scale_factor and modality_name in ('ACC', 'ACC_GYRO'):
-                        if modality_name == 'ACC':
-                            X = X / self.scale_factor
-                        else:
-                            X[:, :3, :] = X[:, :3, :] / self.scale_factor
+                    if self.scale_factor and modality_name == 'ACC':
+                        X = X / self.scale_factor
                     X = X.astype(np.float16)
                     Y = labels.astype(np.int32)
                     key = f"{device_name}/{modality_name}"
@@ -359,13 +370,16 @@ class HHARPreprocessor(BasePreprocessor):
         self,
         acc_stream: Tuple[np.ndarray, np.ndarray, np.ndarray],
         gyro_stream: Tuple[np.ndarray, np.ndarray, np.ndarray],
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        acc_segments = self._resample_segments(acc_stream)
-        gyro_segments = self._resample_segments(gyro_stream)
+        device_name: str,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        # ★ デバイス名を渡してリサンプリング
+        acc_segments = self._resample_segments(acc_stream, device_name=device_name)
+        gyro_segments = self._resample_segments(gyro_stream, device_name=device_name)
 
         if not acc_segments or not gyro_segments:
             return (
-                np.empty((0, self.window_size, 6), dtype=np.float32),
+                np.empty((0, self.window_size, 3), dtype=np.float32),
+                np.empty((0, self.window_size, 3), dtype=np.float32),
                 np.empty((0,), dtype=np.int32)
             )
 
@@ -373,7 +387,8 @@ class HHARPreprocessor(BasePreprocessor):
 
     def _resample_segments(
         self,
-        stream: Tuple[np.ndarray, np.ndarray, np.ndarray]
+        stream: Tuple[np.ndarray, np.ndarray, np.ndarray],
+        device_name: str,
     ) -> List[Dict[str, Any]]:
         t_sec, values, labels = stream
         segments_idx = self._split_segments(t_sec)
@@ -390,6 +405,8 @@ class HHARPreprocessor(BasePreprocessor):
             dt_seg = dt_seg[dt_seg > 0]
             if dt_seg.size == 0:
                 continue
+
+            # 通常の推定
             median_dt = float(np.median(dt_seg))
             if median_dt <= 0:
                 continue
@@ -397,7 +414,14 @@ class HHARPreprocessor(BasePreprocessor):
             if estimated_rate <= 0:
                 continue
             quantized_rate = max(5.0, round(estimated_rate / 5.0) * 5.0)
-            original_rate = quantized_rate
+
+            # ★ デバイス名に基づいて固定レートにする
+            dev_key = device_name.strip().lower()
+            if dev_key in self.device_base_rates:
+                original_rate = self.device_base_rates[dev_key]
+            else:
+                # 未登録のデバイスは従来どおり推定を使う
+                original_rate = quantized_rate
 
             uniform_values, uniform_labels = resample_timeseries(
                 seg_values,
@@ -421,7 +445,7 @@ class HHARPreprocessor(BasePreprocessor):
         self,
         acc_segments: List[Dict[str, Any]],
         gyro_segments: List[Dict[str, Any]],
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         windows_list: List[np.ndarray] = []
         labels_list: List[np.ndarray] = []
 
@@ -475,13 +499,16 @@ class HHARPreprocessor(BasePreprocessor):
 
         if not windows_list:
             return (
-                np.empty((0, self.window_size, 6), dtype=np.float32),
+                np.empty((0, self.window_size, 3), dtype=np.float32),
+                np.empty((0, self.window_size, 3), dtype=np.float32),
                 np.empty((0,), dtype=np.int32)
             )
 
         windows = np.concatenate(windows_list, axis=0)
         window_labels = np.concatenate(labels_list, axis=0)
-        return windows, window_labels
+        acc_windows = windows[:, :, :3]
+        gyro_windows = windows[:, :, 3:]
+        return acc_windows, gyro_windows, window_labels
 
     def _slice_segment(
         self,
