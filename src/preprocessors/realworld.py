@@ -564,8 +564,9 @@ class RealWorldPreprocessor(BasePreprocessor):
                     # float16に変換
                     windowed_data = windowed_data.astype(np.float16)
 
-                    # センサー/モダリティの階層構造
-                    sensor_modality_key = f"{sensor}/{modality}"
+                    # センサー/モダリティの階層構造（GYRはディレクトリ名をGYROに統一）
+                    modality_dir_name = 'GYRO' if modality.upper() == 'GYR' else modality
+                    sensor_modality_key = f"{sensor}/{modality_dir_name}"
 
                     processed[person_id][sensor_modality_key] = {
                         'X': windowed_data,
