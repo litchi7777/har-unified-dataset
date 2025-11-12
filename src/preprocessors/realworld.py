@@ -483,43 +483,122 @@ class RealWorldPreprocessor(BasePreprocessor):
             for sensor, modality_dict in sensor_dict.items():
                 cleaned[person_id][sensor] = {}
 
+                processed_modalities = set()
+
+                # ACC/GYRを結合してフィルタリング
+                if 'ACC' in modality_dict and 'GYR' in modality_dict:
+                    joint_result = self._process_joint_acc_gyro(
+                        person_id,
+                        sensor,
+                        modality_dict['ACC'],
+                        modality_dict['GYR']
+                    )
+                    if joint_result is not None:
+                        cleaned[person_id][sensor]['ACC_GYR'] = joint_result
+                        processed_modalities.update({'ACC', 'GYR', 'ACC_GYR'})
+
                 for modality, (sensor_data, labels) in modality_dict.items():
-                    # 無効なサンプルを除去
-                    cleaned_data, cleaned_labels = filter_invalid_samples(sensor_data, labels)
-
-                    # 未定義ラベル（-1）を除外
-                    valid_mask = cleaned_labels >= 0
-                    cleaned_data = cleaned_data[valid_mask]
-                    cleaned_labels = cleaned_labels[valid_mask]
-
-                    if len(cleaned_data) == 0:
-                        logger.warning(
-                            f"USER{person_id:05d}/{sensor}/{modality}: "
-                            "No valid data after filtering"
-                        )
+                    if modality in processed_modalities:
                         continue
 
-                    # リサンプリング (50Hz -> 30Hz)
-                    if self.original_sampling_rate != self.target_sampling_rate:
-                        resampled_data, resampled_labels = resample_timeseries(
-                            cleaned_data,
-                            cleaned_labels,
-                            self.original_sampling_rate,
-                            self.target_sampling_rate
-                        )
-                        cleaned[person_id][sensor][modality] = (resampled_data, resampled_labels)
-                        logger.info(
-                            f"USER{person_id:05d}/{sensor}/{modality} "
-                            f"resampled: {resampled_data.shape}"
-                        )
-                    else:
-                        cleaned[person_id][sensor][modality] = (cleaned_data, cleaned_labels)
-                        logger.info(
-                            f"USER{person_id:05d}/{sensor}/{modality} "
-                            f"cleaned: {cleaned_data.shape}"
-                        )
+                    cleaned_result = self._filter_and_resample(
+                        sensor_data,
+                        labels,
+                        f"USER{person_id:05d}/{sensor}/{modality}"
+                    )
+
+                    if cleaned_result is None:
+                        continue
+
+                    cleaned[person_id][sensor][modality] = cleaned_result
 
         return cleaned
+
+    def _process_joint_acc_gyro(
+        self,
+        person_id: int,
+        sensor: str,
+        acc_entry: Tuple[np.ndarray, np.ndarray],
+        gyro_entry: Tuple[np.ndarray, np.ndarray]
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        acc_data, acc_labels = acc_entry
+        gyro_data, gyro_labels = gyro_entry
+
+        if len(acc_data) == 0 or len(gyro_data) == 0:
+            logger.warning(
+                f"USER{person_id:05d}/{sensor}/ACC+GYR: One of the modalities is empty"
+            )
+            return None
+
+        if len(acc_data) != len(gyro_data):
+            min_len = min(len(acc_data), len(gyro_data))
+            logger.warning(
+                f"USER{person_id:05d}/{sensor}/ACC+GYR: "
+                f"length mismatch (ACC={len(acc_data)}, GYR={len(gyro_data)}), "
+                f"truncating to {min_len}"
+            )
+            acc_data = acc_data[:min_len]
+            gyro_data = gyro_data[:min_len]
+            acc_labels = acc_labels[:min_len]
+            gyro_labels = gyro_labels[:min_len]
+
+        if not np.array_equal(acc_labels, gyro_labels):
+            logger.warning(
+                f"USER{person_id:05d}/{sensor}/ACC+GYR: label mismatch detected, "
+                "using ACC labels as reference"
+            )
+
+        combined_data = np.concatenate([acc_data, gyro_data], axis=1)
+        cleaned_result = self._filter_and_resample(
+            combined_data,
+            acc_labels,
+            f"USER{person_id:05d}/{sensor}/ACC+GYR"
+        )
+
+        if cleaned_result is None:
+            return None
+
+        logger.info(
+            f"USER{person_id:05d}/{sensor}/ACC+GYR joint cleaned: "
+            f"{cleaned_result[0].shape}"
+        )
+
+        return cleaned_result
+
+    def _filter_and_resample(
+        self,
+        sensor_data: np.ndarray,
+        labels: np.ndarray,
+        log_prefix: str
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        cleaned_data, cleaned_labels = filter_invalid_samples(sensor_data, labels)
+
+        valid_mask = cleaned_labels >= 0
+        cleaned_data = cleaned_data[valid_mask]
+        cleaned_labels = cleaned_labels[valid_mask]
+
+        if len(cleaned_data) == 0:
+            logger.warning(
+                f"{log_prefix}: No valid data after filtering"
+            )
+            return None
+
+        if self.original_sampling_rate != self.target_sampling_rate:
+            resampled_data, resampled_labels = resample_timeseries(
+                cleaned_data,
+                cleaned_labels,
+                self.original_sampling_rate,
+                self.target_sampling_rate
+            )
+            logger.info(
+                f"{log_prefix} resampled: {resampled_data.shape}"
+            )
+            return resampled_data, resampled_labels
+        else:
+            logger.info(
+                f"{log_prefix} cleaned: {cleaned_data.shape}"
+            )
+            return cleaned_data, cleaned_labels
 
     def extract_features(
         self,
@@ -535,50 +614,140 @@ class RealWorldPreprocessor(BasePreprocessor):
             processed[person_id] = {}
 
             for sensor, modality_dict in sensor_dict.items():
-                for modality, (sensor_data, labels) in modality_dict.items():
+                processed_modalities = set()
 
-                    if len(sensor_data) == 0:
+                # ACC/GYRを6軸でウィンドウ化
+                if 'ACC_GYR' in modality_dict:
+                    joint_entries = self._windowize_joint_acc_gyro_features(
+                        sensor,
+                        modality_dict['ACC_GYR']
+                    )
+                    if joint_entries is not None:
+                        processed[person_id].update(joint_entries)
+                        processed_modalities.update({'ACC', 'GYR', 'ACC_GYR'})
+
+                for modality, (sensor_data, labels) in modality_dict.items():
+                    if modality in processed_modalities or len(sensor_data) == 0:
                         continue
 
-                    # スライディングウィンドウ適用
-                    windowed_data, windowed_labels = create_sliding_windows(
-                        sensor_data,
-                        labels,
-                        window_size=self.window_size,
-                        stride=self.stride,
-                        drop_last=False,
-                        pad_last=True
-                    )
+                    entry = self._windowize_single_modality(sensor, modality, sensor_data, labels)
+                    if entry is None:
+                        continue
 
-                    # スケーリング（必要に応じて）
-                    if self.scale_factor is not None:
-                        windowed_data = windowed_data / self.scale_factor
-                        logger.info(
-                            f"  Applied scale_factor={self.scale_factor} to "
-                            f"{sensor}/{modality}"
-                        )
-
-                    # 形状を変換: (num_windows, window_size, C) -> (num_windows, C, window_size)
-                    windowed_data = np.transpose(windowed_data, (0, 2, 1))
-
-                    # float16に変換
-                    windowed_data = windowed_data.astype(np.float16)
-
-                    # センサー/モダリティの階層構造（GYRはディレクトリ名をGYROに統一）
-                    modality_dir_name = 'GYRO' if modality.upper() == 'GYR' else modality
-                    sensor_modality_key = f"{sensor}/{modality_dir_name}"
-
-                    processed[person_id][sensor_modality_key] = {
-                        'X': windowed_data,
-                        'Y': windowed_labels
-                    }
-
-                    logger.info(
-                        f"  {sensor_modality_key}: X.shape={windowed_data.shape}, "
-                        f"Y.shape={windowed_labels.shape}"
-                    )
+                    key, arrays = entry
+                    processed[person_id][key] = arrays
 
         return processed
+
+    def _windowize_joint_acc_gyro_features(
+        self,
+        sensor: str,
+        combined_entry: Tuple[np.ndarray, np.ndarray]
+    ) -> Optional[Dict[str, Dict[str, np.ndarray]]]:
+        combined_data, labels = combined_entry
+
+        if combined_data.shape[1] < 6:
+            logger.warning(f"{sensor}/ACC_GYR: expected 6 channels, got {combined_data.shape[1]}")
+            return None
+
+        windows = self._create_windows(
+            combined_data,
+            labels,
+            f"{sensor}/ACC_GYR",
+            log_suffix="(6-axis)"
+        )
+
+        if windows is None:
+            return None
+
+        windowed_data, windowed_labels = windows
+        acc_windows = windowed_data[:, :3, :]
+        gyro_windows = windowed_data[:, 3:, :]
+
+        logger.info(
+            f"  {sensor}/ACC split from ACC_GYR: X{acc_windows.shape}, Y{windowed_labels.shape}"
+        )
+        logger.info(
+            f"  {sensor}/GYRO split from ACC_GYR: X{gyro_windows.shape}, Y{windowed_labels.shape}"
+        )
+
+        return {
+            f"{sensor}/ACC": {
+                'X': acc_windows,
+                'Y': windowed_labels
+            },
+            f"{sensor}/GYRO": {
+                'X': gyro_windows,
+                'Y': windowed_labels
+            }
+        }
+
+    def _windowize_single_modality(
+        self,
+        sensor: str,
+        modality: str,
+        sensor_data: np.ndarray,
+        labels: np.ndarray
+    ) -> Optional[Tuple[str, Dict[str, np.ndarray]]]:
+        key_modality = 'GYRO' if modality.upper() == 'GYR' else modality
+        key = f"{sensor}/{key_modality}"
+        arrays = self._create_window_entry(sensor_data, labels, key)
+        if arrays is None:
+            return None
+        return key, arrays
+
+    def _create_window_entry(
+        self,
+        sensor_data: np.ndarray,
+        labels: np.ndarray,
+        key: str,
+        log_suffix: str = ""
+    ) -> Optional[Dict[str, np.ndarray]]:
+        windows = self._create_windows(sensor_data, labels, key, log_suffix)
+        if windows is None:
+            return None
+        windowed_data, windowed_labels = windows
+        return {
+            'X': windowed_data,
+            'Y': windowed_labels
+        }
+
+    def _create_windows(
+        self,
+        sensor_data: np.ndarray,
+        labels: np.ndarray,
+        key: str,
+        log_suffix: str = ""
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        if len(sensor_data) == 0:
+            return None
+
+        windowed_data, windowed_labels = create_sliding_windows(
+            sensor_data,
+            labels,
+            window_size=self.window_size,
+            stride=self.stride,
+            drop_last=False,
+            pad_last=True
+        )
+
+        if len(windowed_data) == 0:
+            logger.warning(f"{key}: No windows generated")
+            return None
+
+        if self.scale_factor is not None:
+            windowed_data = windowed_data / self.scale_factor
+            logger.info(f"  Applied scale_factor={self.scale_factor} to {key}")
+
+        windowed_data = np.transpose(windowed_data, (0, 2, 1))
+        windowed_data = windowed_data.astype(np.float16)
+
+        logger.info(
+            f"  {key}{(' ' + log_suffix) if log_suffix else ''}: "
+            f"X.shape={windowed_data.shape}, Y.shape={windowed_labels.shape}"
+        )
+
+        return windowed_data, windowed_labels
 
     def save_processed_data(
         self,
@@ -614,6 +783,7 @@ class RealWorldPreprocessor(BasePreprocessor):
             user_path.mkdir(parents=True, exist_ok=True)
 
             user_stats = {'sensor_modalities': {}}
+            acc_gyro_tracker: Dict[str, Dict[str, int]] = {}
 
             for sensor_modality_name, arrays in sensor_modality_data.items():
                 sensor_modality_path = user_path / sensor_modality_name
@@ -622,6 +792,13 @@ class RealWorldPreprocessor(BasePreprocessor):
                 # X.npy, Y.npy を保存
                 X = arrays['X']  # (num_windows, C, window_size)
                 Y = arrays['Y']  # (num_windows,)
+
+                assert isinstance(X, np.ndarray) and isinstance(Y, np.ndarray), \
+                    f"{user_name}/{sensor_modality_name}: X/Y must be numpy arrays"
+                assert X.dtype == np.float16, \
+                    f"{user_name}/{sensor_modality_name}: X dtype {X.dtype} != float16"
+                assert np.issubdtype(Y.dtype, np.integer), \
+                    f"{user_name}/{sensor_modality_name}: Y dtype {Y.dtype} is not integer"
 
                 np.save(sensor_modality_path / 'X.npy', X)
                 np.save(sensor_modality_path / 'Y.npy', Y)
@@ -638,6 +815,24 @@ class RealWorldPreprocessor(BasePreprocessor):
                     f"Saved {user_name}/{sensor_modality_name}: "
                     f"X{X.shape}, Y{Y.shape}"
                 )
+
+                if '/' in sensor_modality_name:
+                    sensor_name, modality_name = sensor_modality_name.split('/', 1)
+                    modality_upper = modality_name.upper()
+                    if modality_upper in {'ACC', 'GYRO'}:
+                        acc_gyro_tracker.setdefault(sensor_name, {})[modality_upper] = len(Y)
+
+            for sensor_name, modal_counts in acc_gyro_tracker.items():
+                if {'ACC', 'GYRO'}.issubset(modal_counts.keys()):
+                    acc_count = modal_counts['ACC']
+                    gyr_count = modal_counts['GYRO']
+                    assert acc_count == gyr_count, (
+                        f"{user_name}/{sensor_name}: ACC windows ({acc_count}) "
+                        f"!= GYRO windows ({gyr_count})"
+                    )
+                    logger.info(
+                        f"{user_name}/{sensor_name}: ACC/GYRO window counts aligned ({acc_count})"
+                    )
 
             total_stats['users'][user_name] = user_stats
 
