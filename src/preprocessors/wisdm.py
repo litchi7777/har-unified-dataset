@@ -189,14 +189,15 @@ class WISDMPreprocessor(BasePreprocessor):
     # ------------------------------------------------------------------
     # データ読み込み
     # ------------------------------------------------------------------
-    def load_raw_data(self) -> Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]]]:
+    def load_raw_data(self) -> Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray, np.ndarray]]]]:
         """
         生データを被験者 × デバイス × モダリティごとに読み込む
+        戻り値: {subject_id: {device_name: {modality_name: (data, labels, timestamps)}}}
         """
         dataset_root = self._find_existing_dataset_root()
         raw_dir = dataset_root / "raw"
 
-        person_data: Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]]] = {}
+        person_data: Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray, np.ndarray]]]] = {}
 
         for device_name in self.device_names:
             device_folder = self.device_folder_map[device_name]
@@ -211,15 +212,20 @@ class WISDMPreprocessor(BasePreprocessor):
 
                 for sensor_file in sorted(sensor_dir.glob("data_*_*.txt")):
                     subject_id = self._parse_subject_id(sensor_file.name)
-                    data, labels = self._load_sensor_file(sensor_file)
+                    data, labels, timestamps = self._load_sensor_file(sensor_file)
 
-                    if data is None or labels is None or len(data) == 0:
+                    if (
+                        data is None
+                        or labels is None
+                        or timestamps is None
+                        or len(data) == 0
+                    ):
                         logger.warning(f"No valid samples in {sensor_file}")
                         continue
 
                     person_entry = person_data.setdefault(subject_id, {})
                     device_entry = person_entry.setdefault(device_name, {})
-                    device_entry[modality_name] = (data, labels)
+                    device_entry[modality_name] = (data, labels, timestamps)
 
                     logger.info(
                         f"Loaded {sensor_file.name}: subject={subject_id}, "
@@ -266,7 +272,9 @@ class WISDMPreprocessor(BasePreprocessor):
         except (IndexError, ValueError) as exc:
             raise ValueError(f"Invalid WISDM filename format: {filename}") from exc
 
-    def _load_sensor_file(self, file_path: Path) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    def _load_sensor_file(
+        self, file_path: Path
+    ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
         """
         単一のセンサーファイルを読み込み、データとラベルを返す
         """
@@ -309,7 +317,7 @@ class WISDMPreprocessor(BasePreprocessor):
                 timestamps.append(timestamp)
 
         if not samples:
-            return None, None
+            return None, None, None
 
         data = np.asarray(samples, dtype=np.float32)
         label_array = np.asarray(labels, dtype=np.int32)
@@ -319,14 +327,15 @@ class WISDMPreprocessor(BasePreprocessor):
         order = np.argsort(timestamp_array)
         data = data[order]
         label_array = label_array[order]
+        timestamp_array = timestamp_array[order]
 
-        return data, label_array
+        return data, label_array, timestamp_array
 
     # ------------------------------------------------------------------
     # クリーニング & リサンプリング
     # ------------------------------------------------------------------
     def clean_data(
-        self, data: Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]]]
+        self, data: Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray, np.ndarray]]]]
     ) -> Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]]]:
         cleaned: Dict[int, Dict[str, Dict[str, Tuple[np.ndarray, np.ndarray]]]] = {}
 
@@ -335,36 +344,264 @@ class WISDMPreprocessor(BasePreprocessor):
             for device_name, modality_data in device_data.items():
                 cleaned[person_id][device_name] = {}
 
-                for modality_name, (sensor_data, labels) in modality_data.items():
-                    filtered_data, filtered_labels = filter_invalid_samples(sensor_data, labels)
+                processed_modalities = set()
 
-                    if len(filtered_data) == 0:
-                        logger.warning(
-                            f"No valid samples after cleaning: USER{person_id} {device_name}/{modality_name}"
-                        )
+                if "ACC" in modality_data and "GYRO" in modality_data:
+                    joint_result = self._process_joint_acc_gyro(
+                        person_id,
+                        device_name,
+                        modality_data["ACC"],
+                        modality_data["GYRO"],
+                    )
+                    if joint_result is not None:
+                        cleaned[person_id][device_name]["ACC_GYR"] = joint_result
+                        processed_modalities.update({"ACC", "GYRO", "ACC_GYR"})
+
+                for modality_name, entry in modality_data.items():
+                    if modality_name in processed_modalities:
                         continue
 
-                    if self.original_sampling_rate != self.target_sampling_rate:
-                        resampled_data, resampled_labels = resample_timeseries(
-                            filtered_data,
-                            filtered_labels,
-                            self.original_sampling_rate,
-                            self.target_sampling_rate,
-                        )
-                    else:
-                        resampled_data, resampled_labels = filtered_data, filtered_labels
+                    sensor_data, labels = entry[:2]
 
-                    cleaned[person_id][device_name][modality_name] = (
-                        resampled_data,
-                        resampled_labels,
+                    cleaned_result = self._filter_and_resample(
+                        sensor_data,
+                        labels,
+                        f"USER{person_id:05d} {device_name}/{modality_name}",
                     )
 
-                    logger.info(
-                        f"USER{person_id:05d} {device_name}/{modality_name}: "
-                        f"{sensor_data.shape} -> {resampled_data.shape}"
-                    )
+                    if cleaned_result is None:
+                        continue
+
+                    cleaned[person_id][device_name][modality_name] = cleaned_result
 
         return cleaned
+
+    def _process_joint_acc_gyro(
+        self,
+        person_id: int,
+        device_name: str,
+        acc_entry: Tuple[np.ndarray, np.ndarray, np.ndarray],
+        gyro_entry: Tuple[np.ndarray, np.ndarray, np.ndarray],
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        acc_data, acc_labels, acc_time = acc_entry
+        gyro_data, gyro_labels, gyro_time = gyro_entry
+
+        if (
+            len(acc_data) == 0
+            or len(gyro_data) == 0
+            or acc_time is None
+            or gyro_time is None
+        ):
+            logger.warning(
+                f"USER{person_id:05d} {device_name}/ACC+GYRO: One modality is empty or missing timestamps"
+            )
+            return None
+
+        # 内部整合性チェック（各モダリティ内で data/labels/time の長さを一致させる）
+        if not (len(acc_data) == len(acc_labels) == len(acc_time)):
+            min_len = min(len(acc_data), len(acc_labels), len(acc_time))
+            logger.warning(
+                f"USER{person_id:05d} {device_name}/ACC: internal length mismatch; truncating to {min_len}"
+            )
+            acc_data = acc_data[:min_len]
+            acc_labels = acc_labels[:min_len]
+            acc_time = acc_time[:min_len]
+
+        if not (len(gyro_data) == len(gyro_labels) == len(gyro_time)):
+            min_len = min(len(gyro_data), len(gyro_labels), len(gyro_time))
+            logger.warning(
+                f"USER{person_id:05d} {device_name}/GYRO: internal length mismatch; truncating to {min_len}"
+            )
+            gyro_data = gyro_data[:min_len]
+            gyro_labels = gyro_labels[:min_len]
+            gyro_time = gyro_time[:min_len]
+
+        # モダリティ間の長さ不一致も短い方にそろえる（timestamps を含む）
+        if len(acc_data) != len(gyro_data):
+            min_len = min(len(acc_data), len(gyro_data))
+            logger.warning(
+                f"USER{person_id:05d} {device_name}/ACC+GYRO: length mismatch "
+                f"(ACC={len(acc_data)}, GYRO={len(gyro_data)}), truncating to {min_len}"
+            )
+            acc_data = acc_data[:min_len]
+            acc_labels = acc_labels[:min_len]
+            acc_time = acc_time[:min_len]
+            gyro_data = gyro_data[:min_len]
+            gyro_labels = gyro_labels[:min_len]
+            gyro_time = gyro_time[:min_len]
+
+        # タイムスタンプのオーバーラップ領域を抽出
+        overlap_start = max(acc_time[0], gyro_time[0])
+        overlap_end = min(acc_time[-1], gyro_time[-1])
+
+        if overlap_end <= overlap_start:
+            logger.warning(
+                f"USER{person_id:05d} {device_name}/ACC+GYRO: no overlapping timestamps"
+            )
+            return None
+
+        acc_mask = (acc_time >= overlap_start) & (acc_time <= overlap_end)
+        gyro_mask = (gyro_time >= overlap_start) & (gyro_time <= overlap_end)
+
+        if acc_mask.sum() == 0 or gyro_mask.sum() == 0:
+            logger.warning(
+                f"USER{person_id:05d} {device_name}/ACC+GYRO: empty after overlap masking"
+            )
+            return None
+
+        acc_data = acc_data[acc_mask]
+        acc_labels = acc_labels[acc_mask]
+        acc_time = acc_time[acc_mask]
+
+        gyro_data = gyro_data[gyro_mask]
+        gyro_labels = gyro_labels[gyro_mask]
+        gyro_time = gyro_time[gyro_mask]
+
+        if len(acc_data) < 2 or len(gyro_data) < 2:
+            logger.warning(
+                f"USER{person_id:05d} {device_name}/ACC+GYRO: insufficient samples after overlap trim"
+            )
+            return None
+
+        # 相対秒に変換
+        acc_seconds = (acc_time - overlap_start).astype(np.float64) / 1000.0
+        gyro_seconds = (gyro_time - overlap_start).astype(np.float64) / 1000.0
+
+        start_offset = max(acc_seconds[0], gyro_seconds[0])
+        end_offset = min(acc_seconds[-1], gyro_seconds[-1])
+        if end_offset <= start_offset:
+            logger.warning(
+                f"USER{person_id:05d} {device_name}/ACC+GYRO: effective overlap duration <= 0"
+            )
+            return None
+
+        # ターゲット時間グリッド（target SR）
+        target_step = 1.0 / float(self.target_sampling_rate)
+        duration = end_offset - start_offset
+        num_samples = int(np.floor(duration / target_step)) + 1
+        if num_samples < 2:
+            logger.warning(
+                f"USER{person_id:05d} {device_name}/ACC+GYRO: insufficient target samples"
+            )
+            return None
+        target_times = start_offset + np.arange(num_samples, dtype=np.float64) * target_step
+
+        if len(target_times) < 2:
+            logger.warning(
+                f"USER{person_id:05d} {device_name}/ACC+GYRO: insufficient target samples ({len(target_times)})"
+            )
+            return None
+
+        # タイムスタンプに基づき線形補間で合わせる（ラベルは直前サンプルを引き当て）
+        acc_resampled, acc_resampled_labels = self._resample_with_timestamps(
+            acc_data,
+            acc_labels,
+            acc_seconds,
+            target_times,
+        )
+        gyro_resampled, _ = self._resample_with_timestamps(
+            gyro_data,
+            gyro_labels,
+            gyro_seconds,
+            target_times,
+        )
+
+        if acc_resampled is None or gyro_resampled is None:
+            logger.warning(
+                f"USER{person_id:05d} {device_name}/ACC+GYRO: resampling failed"
+            )
+            return None
+
+        # 6チャネルに結合（ACC 3 + GYRO 3）
+        combined_data = np.concatenate([acc_resampled, gyro_resampled], axis=1)
+
+        # 無効サンプル除去（NaN 等）
+        combined_data, combined_labels = filter_invalid_samples(
+            combined_data,
+            acc_resampled_labels,
+        )
+        valid_mask = combined_labels >= 0
+        combined_data = combined_data[valid_mask]
+        combined_labels = combined_labels[valid_mask]
+
+        if len(combined_data) == 0:
+            logger.warning(
+                f"USER{person_id:05d} {device_name}/ACC+GYRO: no valid samples after filtering"
+            )
+            return None
+
+        logger.info(
+            f"USER{person_id:05d} {device_name}/ACC+GYRO joint cleaned: {combined_data.shape}"
+        )
+
+        return combined_data, combined_labels
+
+    def _filter_and_resample(
+        self,
+        sensor_data: np.ndarray,
+        labels: np.ndarray,
+        log_prefix: str,
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        filtered_data, filtered_labels = filter_invalid_samples(sensor_data, labels)
+
+        valid_mask = filtered_labels >= 0
+        filtered_data = filtered_data[valid_mask]
+        filtered_labels = filtered_labels[valid_mask]
+
+        if len(filtered_data) == 0:
+            logger.warning(f"{log_prefix}: No valid samples after filtering")
+            return None
+
+        if self.original_sampling_rate != self.target_sampling_rate:
+            resampled_data, resampled_labels = resample_timeseries(
+                filtered_data,
+                filtered_labels,
+                self.original_sampling_rate,
+                self.target_sampling_rate,
+            )
+            logger.info(f"{log_prefix}: resampled {filtered_data.shape} -> {resampled_data.shape}")
+            return resampled_data, resampled_labels
+
+        logger.info(f"{log_prefix}: cleaned {filtered_data.shape}")
+        return filtered_data, filtered_labels
+
+    def _resample_with_timestamps(
+        self,
+        values: np.ndarray,
+        labels: np.ndarray,
+        time_sec: np.ndarray,
+        target_times: np.ndarray,
+    ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        if len(values) < 2 or len(time_sec) < 2:
+            return None, None
+
+        # Ensure strictly increasing timeline
+        order = np.argsort(time_sec)
+        time_sec = time_sec[order]
+        values = values[order]
+        labels = labels[order]
+
+        unique_time, unique_indices = np.unique(time_sec, return_index=True)
+        if len(unique_time) < 2:
+            return None, None
+
+        time_sec = unique_time
+        values = values[unique_indices]
+        labels = labels[unique_indices]
+
+        resampled = np.empty((len(target_times), values.shape[1]), dtype=np.float32)
+        for axis in range(values.shape[1]):
+            resampled[:, axis] = np.interp(
+                target_times,
+                time_sec,
+                values[:, axis],
+            )
+
+        indices = np.searchsorted(time_sec, target_times, side="right") - 1
+        indices = np.clip(indices, 0, len(labels) - 1)
+        resampled_labels = labels[indices].astype(np.int32)
+
+        return resampled.astype(np.float32), resampled_labels
 
     # ------------------------------------------------------------------
     # 特徴抽出
@@ -378,48 +615,119 @@ class WISDMPreprocessor(BasePreprocessor):
             processed[person_id] = {}
             logger.info(f"Processing USER{person_id:05d}")
 
-            for device_name in self.device_names:
-                modality_data = device_data.get(device_name, {})
+            for device_name, modality_data in device_data.items():
+                processed_modalities = set()
 
-                for modality_name in self.modalities:
-                    sensor_entry = modality_data.get(modality_name)
-                    if sensor_entry is None:
-                        continue
-
-                    sensor_data, labels = sensor_entry
-                    if len(sensor_data) < 1:
-                        continue
-
-                    windows, window_labels = create_sliding_windows(
-                        sensor_data,
-                        labels,
-                        window_size=self.window_size,
-                        stride=self.stride,
-                        drop_last=False,
-                        pad_last=True,
+                if "ACC_GYR" in modality_data:
+                    joint_entries = self._windowize_joint_acc_gyro_features(
+                        device_name,
+                        modality_data["ACC_GYR"],
                     )
+                    if joint_entries is not None:
+                        processed[person_id].update(joint_entries)
+                        processed_modalities.update({"ACC", "GYRO", "ACC_GYR"})
 
-                    if len(windows) == 0:
-                        logger.warning(
-                            f"No windows generated for USER{person_id:05d} "
-                            f"{device_name}/{modality_name}"
-                        )
+                for modality_name, entry in modality_data.items():
+                    if modality_name in processed_modalities:
                         continue
 
-                    if modality_name == "ACC" and self.scale_factor:
-                        windows = windows / self.scale_factor
-
-                    windows = np.transpose(windows, (0, 2, 1))
-                    windows = windows.astype(np.float16)
-
-                    key = f"{device_name}/{modality_name}"
-                    processed[person_id][key] = {"X": windows, "Y": window_labels}
-
-                    logger.info(
-                        f"  {key}: X{windows.shape}, Y{window_labels.shape}"
+                    logger.warning(
+                        f"USER{person_id:05d} {device_name}/{modality_name}: "
+                        "skipped because joint ACC/GYRO data was required"
                     )
 
         return processed
+
+    def _windowize_joint_acc_gyro_features(
+        self,
+        device_name: str,
+        combined_entry: Tuple[np.ndarray, np.ndarray],
+    ) -> Optional[Dict[str, Dict[str, np.ndarray]]]:
+        combined_data, labels = combined_entry
+
+        if combined_data.shape[1] < 6:
+            logger.warning(
+                f"{device_name}/ACC_GYR: expected 6 channels, got {combined_data.shape[1]}"
+            )
+            return None
+
+        windows = self._create_windows(
+            combined_data,
+            labels,
+            f"{device_name}/ACC_GYR",
+            log_suffix="(6-axis)",
+        )
+        if windows is None:
+            return None
+
+        windowed_data, windowed_labels = windows
+        acc_windows = windowed_data[:, :3, :]
+        gyro_windows = windowed_data[:, 3:, :]
+
+        if self.scale_factor is not None:
+            acc_windows = (
+                acc_windows.astype(np.float32) / self.scale_factor
+            ).astype(np.float16)
+
+        logger.info(
+            f"  {device_name}/ACC split from ACC_GYR: X{acc_windows.shape}, Y{windowed_labels.shape}"
+        )
+        logger.info(
+            f"  {device_name}/GYRO split from ACC_GYR: X{gyro_windows.shape}, Y{windowed_labels.shape}"
+        )
+
+        return {
+            f"{device_name}/ACC": {"X": acc_windows, "Y": windowed_labels},
+            f"{device_name}/GYRO": {"X": gyro_windows, "Y": windowed_labels},
+        }
+
+    def _create_window_entry(
+        self,
+        sensor_data: np.ndarray,
+        labels: np.ndarray,
+        key: str,
+    ) -> Optional[Dict[str, np.ndarray]]:
+        windows = self._create_windows(sensor_data, labels, key)
+        if windows is None:
+            return None
+        windowed_data, windowed_labels = windows
+        return {"X": windowed_data, "Y": windowed_labels}
+
+    def _create_windows(
+        self,
+        sensor_data: np.ndarray,
+        labels: np.ndarray,
+        key: str,
+        log_suffix: str = "",
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        if len(sensor_data) == 0:
+            return None
+
+        windows, window_labels = create_sliding_windows(
+            sensor_data,
+            labels,
+            window_size=self.window_size,
+            stride=self.stride,
+            drop_last=False,
+            pad_last=True,
+        )
+
+        if len(windows) == 0:
+            logger.warning(f"{key}: No windows generated")
+            return None
+
+        if key.endswith("/ACC") and self.scale_factor is not None and sensor_data.shape[1] == 3:
+            windows = windows / self.scale_factor
+
+        # (N, T, C) -> (N, C, T)
+        windows = np.transpose(windows, (0, 2, 1)).astype(np.float16)
+
+        logger.info(
+            f"  {key}{(' ' + log_suffix) if log_suffix else ''}: "
+            f"X{windows.shape}, Y{window_labels.shape}"
+        )
+
+        return windows, window_labels
 
     # ------------------------------------------------------------------
     # 保存
@@ -454,6 +762,7 @@ class WISDMPreprocessor(BasePreprocessor):
             user_path.mkdir(parents=True, exist_ok=True)
 
             user_stats = {"sensor_modalities": {}}
+            acc_gyro_tracker: Dict[str, Dict[str, int]] = {}
 
             for sensor_modality_name, arrays in sensor_data.items():
                 sensor_modality_path = user_path / sensor_modality_name
@@ -461,6 +770,13 @@ class WISDMPreprocessor(BasePreprocessor):
 
                 X = arrays["X"]
                 Y = arrays["Y"]
+
+                assert isinstance(X, np.ndarray) and isinstance(Y, np.ndarray), \
+                    f"{user_name}/{sensor_modality_name}: X/Y must be numpy arrays"
+                assert X.dtype == np.float16, \
+                    f"{user_name}/{sensor_modality_name}: X dtype {X.dtype} != float16"
+                assert np.issubdtype(Y.dtype, np.integer), \
+                    f"{user_name}/{sensor_modality_name}: Y dtype {Y.dtype} is not integer"
 
                 np.save(sensor_modality_path / "X.npy", X)
                 np.save(sensor_modality_path / "Y.npy", Y)
@@ -475,6 +791,24 @@ class WISDMPreprocessor(BasePreprocessor):
                 logger.info(
                     f"Saved {user_name}/{sensor_modality_name}: X{X.shape}, Y{Y.shape}"
                 )
+
+                if "/" in sensor_modality_name:
+                    device_key, modality_key = sensor_modality_name.split("/", 1)
+                    modality_upper = modality_key.upper()
+                    if modality_upper in {"ACC", "GYRO"}:
+                        acc_gyro_tracker.setdefault(device_key, {})[modality_upper] = len(Y)
+
+            for device_key, modal_counts in acc_gyro_tracker.items():
+                if {"ACC", "GYRO"}.issubset(modal_counts.keys()):
+                    acc_count = modal_counts["ACC"]
+                    gyr_count = modal_counts["GYRO"]
+                    assert acc_count == gyr_count, (
+                        f"{user_name}/{device_key}: ACC windows ({acc_count}) "
+                        f"!= GYRO windows ({gyr_count})"
+                    )
+                    logger.info(
+                        f"{user_name}/{device_key}: ACC/GYRO window counts aligned ({acc_count})"
+                    )
 
             total_stats["users"][user_name] = user_stats
 
