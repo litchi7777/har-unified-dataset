@@ -6,8 +6,7 @@ adjust_fps_Ego4d.py のロジックを本リポジトリの前処理フレーム
 主な処理:
 - CSV を読み込み、タイムスタンプギャップや逆行で分割
 - 連続区間ごとに実効サンプリング周波数を推定
-- 高レートの場合は等間隔再配置→LPF付き polyphase で目標レート（既定30Hz）へ変換
-- それ以外は目標レート等間隔へ線形補間
+- 推定周波数に関わらず目標レート（既定30Hz）の等間隔グリッドへ線形補間
 - 1秒（= window_size / target_sampling_rate）窓に分割し、configのstrideでスライド
 - 出力はセンサー "Head" の `ACC`/`GYRO` に分け、
   data/processed/ego4d/USERxxxxx/Head/{ACC|GYRO}/X.npy, Y.npy として保存
@@ -24,8 +23,6 @@ import logging
 
 import numpy as np
 import pandas as pd
-from fractions import Fraction
-from scipy.signal import resample_poly
 import subprocess
 import sys
 import shutil
@@ -92,25 +89,6 @@ def _robust_fs(t_sec: np.ndarray) -> float:
         dt_clip = dt
     med = float(np.median(dt_clip))
     return 1.0 / med if med > 0 else np.nan
-
-
-def _to_uniform_grid_at_fs(t_sec: np.ndarray, y_cols: List[np.ndarray], fs_est: float):
-    dt_src = 1.0 / fs_est
-    t0 = np.ceil(t_sec[0] / dt_src) * dt_src
-    t1 = np.floor(t_sec[-1] / dt_src) * dt_src
-    if t1 <= t0:
-        return np.array([]), []
-    n = int(round((t1 - t0) / dt_src)) + 1
-    t_uni = t0 + np.arange(n, dtype=np.float64) * dt_src
-    y_uni = [np.interp(t_uni, t_sec, y) for y in y_cols]
-    return t_uni, y_uni
-
-
-def _lpf_downsample_to_target(y_uni_cols: List[np.ndarray], fs_est: float, target_hz: float):
-    ratio = Fraction.from_float(target_hz / fs_est).limit_denominator(1000)
-    up, down = ratio.numerator, ratio.denominator
-    y_out_cols = [resample_poly(y, up, down) for y in y_uni_cols]
-    return y_out_cols
 
 
 @register_preprocessor('ego4d')
@@ -291,7 +269,7 @@ class Ego4dPreprocessor(BasePreprocessor):
         windows: List[np.ndarray] = []
         t0_list: List[np.ndarray] = []
 
-        for part in parts:
+        for idx, part in enumerate(parts):
             if len(part) < 2:
                 continue
 
@@ -316,27 +294,25 @@ class Ego4dPreprocessor(BasePreprocessor):
             if not np.isfinite(fs_est) or fs_est <= 0:
                 continue
             fs_est = round(fs_est)
+            logger.info(
+                f"{in_path.name} segment#{idx}: estimated_fs={fs_est}Hz target_fs={self.target_sampling_rate}Hz"
+            )
 
             y_cols_raw = [part[c].to_numpy(np.float64) for c in COLS_IMU]
 
-            if fs_est > (self.target_sampling_rate + 15.0):
-                # 高レート: 等間隔化→LPFダウンサンプル
-                t_uni, y_uni_cols = _to_uniform_grid_at_fs(t_sec, y_cols_raw, fs_est)
-                if t_uni.size == 0:
-                    continue
-                y_target_cols = _lpf_downsample_to_target(y_uni_cols, fs_est, self.target_sampling_rate)
-                n_target = len(y_target_cols[0])
-                t_target = np.arange(n_target, dtype=np.float64) / self.target_sampling_rate
-            else:
-                # 直接 目標レート等間隔へ線形補間（内側トリム）
-                dt = 1.0 / self.target_sampling_rate
-                t0 = np.ceil(t_sec[0] / dt) * dt
-                t1 = np.floor(t_sec[-1] / dt) * dt
-                if t1 <= t0:
-                    continue
-                n = int(round((t1 - t0) / dt)) + 1
-                t_target = t0 + np.arange(n, dtype=np.float64) * dt
-                y_target_cols = [np.interp(t_target, t_sec, y).astype(np.float32) for y in y_cols_raw]
+            # 目標レート等間隔へ線形補間（内側トリム）
+            dt = 1.0 / self.target_sampling_rate
+            t0 = np.ceil(t_sec[0] / dt) * dt
+            t1 = np.floor(t_sec[-1] / dt) * dt
+            if t1 <= t0:
+                continue
+            n = int(round((t1 - t0) / dt)) + 1
+            t_target = t0 + np.arange(n, dtype=np.float64) * dt
+            y_target_cols = [np.interp(t_target, t_sec, y).astype(np.float32) for y in y_cols_raw]
+            logger.info(
+                f"Interpolated from ~{fs_est}Hz to {self.target_sampling_rate}Hz: "
+                f"({len(y_cols_raw[0])}, {len(y_cols_raw)}) -> ({n}, {len(y_cols_raw)})"
+            )
 
             # 1秒窓
             win_len = int(self.window_size)     # 例: 30
