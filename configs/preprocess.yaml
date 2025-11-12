@@ -71,11 +71,11 @@ datasets:
     processed_data_path: data/processed
 
     # サンプリングレート
-    target_sampling_rate: 30  # Hz (元から30Hz、リサンプリング不要)
+    target_sampling_rate: 60  # Hz (元から30Hz、リサンプリング不要)
 
     # ウィンドウパラメータ
-    window_size: 150      # 5秒 @ 30Hz
-    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+    window_size: 60      # 5秒 @ 30Hz
+    stride: 12            # 1秒 @ 30Hz (80%オーバーラップ)
 
     # データ分割比率
     train_ratio: 0.7
@@ -128,11 +128,11 @@ datasets:
     processed_data_path: data/processed
 
     # サンプリングレート
-    target_sampling_rate: 30  # Hz (元は51.2Hzからリサンプリング)
+    target_sampling_rate: 60  # Hz (元は51.2Hzからリサンプリング)
 
     # ウィンドウパラメータ
-    window_size: 150      # 5秒 @ 30Hz
-    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+    window_size: 60      # 5秒 @ 30Hz
+    stride: 12            # 1秒 @ 30Hz (80%オーバーラップ)
 
     # データセット情報（参考用）
     num_activities: 16
@@ -191,11 +191,11 @@ datasets:
     processed_data_path: data/processed
 
     # サンプリングレート
-    target_sampling_rate: 30  # Hz (元は100Hzからリサンプリング)
+    target_sampling_rate: 60  # Hz (元は100Hzからリサンプリング)
 
     # ウィンドウパラメータ
-    window_size: 150      # 5秒 @ 30Hz
-    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+    window_size: 60      # 5秒 @ 30Hz
+    stride: 12            # 1秒 @ 30Hz (80%オーバーラップ)
 
     # データセット情報（参考用）
     num_activities: 8     # 物流倉庫作業活動
@@ -291,6 +291,18 @@ datasets:
     num_channels: 113     # 全body-wornセンサー（IMU 7×13ch + 加速度センサー 22ch）
     original_sampling_rate: 30  # Hz (元データ)
     # リサンプリング不要
+
+  uschad:
+  # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 60  # Hz (元は51.2Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 60      # 5秒 @ 30Hz
+    stride: 12            # 1秒 @ 30Hz (80%オーバーラップ)
 
 # ロギング設定
 logging:
