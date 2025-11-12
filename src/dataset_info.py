@@ -88,6 +88,7 @@ DATASETS = {
         "n_classes": 10,  # 9クラス + Undefined(-1)
         "sampling_rate": 30,  # Hz
         "original_sampling_rate": 30,  # Hz (リサンプリング不要)
+        "gyro_scale_factor": np.pi / 180.0,  # deg/s -> rad/s に変換
         "has_undefined_class": True,  # ラベル-1が存在
         "labels": {
             -1: 'Undefined',  # 未定義/無操作/その他（operation=0,10）
@@ -103,6 +104,7 @@ DATASETS = {
         "sampling_rate": 30,  # Hz (リサンプリング後)
         "original_sampling_rate": 51.2,  # Hz
         "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
+        "gyro_scale_factor": np.pi / 180.0,  # deg/s -> rad/s に変換
         "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
         "labels": {
             0: 'Stand', 1: 'Sit', 2: 'Sit and Talk', 3: 'Walk',
@@ -161,6 +163,7 @@ DATASETS = {
         "sampling_rate": 30,  # Hz (リサンプリング後)
         "original_sampling_rate": 100,  # Hz
         "scale_factor": None,  # 既にG単位なので変換不要
+        "gyro_scale_factor": np.pi / 180.0,  # deg/s -> rad/s に変換
         "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
         "labels": {
             0: 'Stationary',
@@ -262,6 +265,7 @@ DATASETS = {
         "sampling_rate": 30,  # Hz (リサンプリング後)
         "original_sampling_rate": 100,  # Hz
         "scale_factor": None,  # 既にG単位なので変換不要
+        "gyro_scale_factor": np.pi / 180.0,  # deg/s -> rad/s に変換
         "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
         "labels": {
             0: 'Walking Forward',

@@ -81,8 +81,9 @@ class ForthtracePreprocessor(BasePreprocessor):
         self.window_size = config.get('window_size', 150)  # 5秒 @ 30Hz
         self.stride = config.get('stride', 30)  # 1秒 @ 30Hz
 
-        # スケーリング係数（m/s^2 -> G に変換）
-        self.scale_factor = DATASETS.get('FORTHTRACE', {}).get('scale_factor', None)
+        # スケーリング係数
+        self.scale_factor = DATASETS.get('FORTHTRACE', {}).get('scale_factor', None)  # ACC: m/s^2 -> G
+        self.gyro_scale_factor = DATASETS.get('FORTHTRACE', {}).get('gyro_scale_factor', None)  # GYRO: deg/s -> rad/s
 
     def get_dataset_name(self) -> str:
         return 'forthtrace'
@@ -341,7 +342,13 @@ class ForthtracePreprocessor(BasePreprocessor):
                     if modality_name == 'ACC' and self.scale_factor is not None:
                         modality_data = modality_data / self.scale_factor
                         logger.info(
-                            f"  Applied scale_factor={self.scale_factor} to "
+                            f"  Applied acc_scale_factor={self.scale_factor} to "
+                            f"{sensor_name}/{modality_name}"
+                        )
+                    elif modality_name == 'GYRO' and self.gyro_scale_factor is not None:
+                        modality_data = modality_data * self.gyro_scale_factor
+                        logger.info(
+                            f"  Applied gyro_scale_factor={self.gyro_scale_factor} to "
                             f"{sensor_name}/{modality_name}"
                         )
 
@@ -399,6 +406,7 @@ class ForthtracePreprocessor(BasePreprocessor):
             'stride': self.stride,
             'normalization': 'none',  # 正規化なし（生データ保持）
             'scale_factor': self.scale_factor,  # スケーリング係数（ACCのみ適用）
+            'gyro_scale_factor': self.gyro_scale_factor,  # ジャイロ変換
             'data_dtype': 'float16',  # データ型
             'data_shape': f'(num_windows, {self.channels_per_modality}, {self.window_size})',
             'users': {}

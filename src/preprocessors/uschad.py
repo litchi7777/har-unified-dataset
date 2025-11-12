@@ -70,8 +70,9 @@ class USCHADPreprocessor(BasePreprocessor):
         self.window_size = config.get('window_size', 150)  # 5秒 @ 30Hz
         self.stride = config.get('stride', 30)  # 1秒 @ 30Hz
 
-        # スケーリング係数（USC-HADはすでにG単位なのでNone）
+        # スケーリング係数（ACC/GYRO）
         self.scale_factor = DATASETS.get('USCHAD', {}).get('scale_factor', None)
+        self.gyro_scale_factor = DATASETS.get('USCHAD', {}).get('gyro_scale_factor', None)
 
         # アクティビティ名マッピング
         self.activity_names = {
@@ -313,10 +314,16 @@ class USCHADPreprocessor(BasePreprocessor):
                     modality_data = windowed_data[:, :, mod_start_ch:mod_end_ch]
                     # modality_data: (num_windows, window_size, 3)
 
-                    # スケーリング適用（USC-HADはすでにG単位なのでscale_factor=None）
+                    # スケーリング適用
                     if modality_name == 'ACC' and self.scale_factor is not None:
                         modality_data = modality_data / self.scale_factor
                         logger.info(f"  Applied scale_factor={self.scale_factor} to {sensor_name}/{modality_name}")
+                    elif modality_name == 'GYRO' and self.gyro_scale_factor is not None:
+                        modality_data = modality_data * self.gyro_scale_factor
+                        logger.info(
+                            f"  Applied gyro_scale_factor={self.gyro_scale_factor} to "
+                            f"{sensor_name}/{modality_name}"
+                        )
 
                     # 形状を変換: (num_windows, window_size, 3) -> (num_windows, 3, window_size)
                     modality_data = np.transpose(modality_data, (0, 2, 1))
@@ -368,6 +375,7 @@ class USCHADPreprocessor(BasePreprocessor):
             'stride': self.stride,
             'normalization': 'none',  # 正規化なし（生データ保持）
             'scale_factor': self.scale_factor,  # USC-HADはすでにG単位なのでNone
+            'gyro_scale_factor': self.gyro_scale_factor,  # ジャイロ変換係数
             'data_dtype': 'float16',  # データ型
             'data_shape': f'(num_windows, {self.channels_per_modality}, {self.window_size})',
             'users': {}

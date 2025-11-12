@@ -100,8 +100,9 @@ class LaraPreprocessor(BasePreprocessor):
         self.window_size = config.get('window_size', 150)  # 5秒 @ 30Hz
         self.stride = config.get('stride', 30)  # 1秒 @ 30Hz
 
-        # スケーリング係数（既にG単位なので不要）
+        # スケーリング係数（ACC/GYRO）
         self.scale_factor = DATASETS.get('LARA', {}).get('scale_factor', None)
+        self.gyro_scale_factor = DATASETS.get('LARA', {}).get('gyro_scale_factor', None)
 
     def get_dataset_name(self) -> str:
         return 'lara'
@@ -311,6 +312,13 @@ class LaraPreprocessor(BasePreprocessor):
                 for modality_name, (mod_start, mod_end) in self.sensor_modalities[sensor_name].items():
                     X_modality = X_sensor[:, mod_start:mod_end, :]  # (num_windows, 3, window_size)
 
+                    if modality_name == 'GYRO' and self.gyro_scale_factor is not None:
+                        X_modality = X_modality * self.gyro_scale_factor
+                        logger.info(
+                            f"  Applied gyro_scale_factor={self.gyro_scale_factor} to "
+                            f"{sensor_name}/{modality_name}"
+                        )
+
                     sensor_modality_key = f"{sensor_name}/{modality_name}"
                     person_dict[sensor_modality_key] = {
                         'X': X_modality.astype(np.float16),
@@ -349,6 +357,7 @@ class LaraPreprocessor(BasePreprocessor):
             'stride': self.stride,
             'normalization': 'none',  # 正規化なし（生データ保持）
             'scale_factor': self.scale_factor,  # スケーリング係数（既にG単位なのでNone）
+            'gyro_scale_factor': self.gyro_scale_factor,  # ジャイロ変換
             'data_dtype': 'float16',  # データ型
             'users': {}
         }

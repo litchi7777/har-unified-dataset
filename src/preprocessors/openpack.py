@@ -39,6 +39,7 @@ from .common import (
     check_dataset_exists
 )
 from . import register_preprocessor
+from ..dataset_info import DATASETS
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,7 @@ class OpenPackPreprocessor(BasePreprocessor):
         # 前処理パラメータ
         self.window_size = config.get('window_size', 150)  # 5秒 @ 30Hz
         self.stride = config.get('stride', 30)  # 1秒 @ 30Hz
+        self.gyro_scale_factor = DATASETS.get('OPENPACK', {}).get('gyro_scale_factor', None)
 
     def get_dataset_name(self) -> str:
         return 'openpack'
@@ -335,6 +337,13 @@ class OpenPackPreprocessor(BasePreprocessor):
                     modality_data = windowed_data[:, :, mod_start_ch:mod_end_ch]
                     # modality_data: (num_windows, window_size, C)
 
+                    if modality_name == 'GYRO' and self.gyro_scale_factor is not None:
+                        modality_data = modality_data * self.gyro_scale_factor
+                        logger.info(
+                            f"  Applied gyro_scale_factor={self.gyro_scale_factor} to "
+                            f"{sensor_name}/{modality_name}"
+                        )
+
                     # 形状を変換: (num_windows, window_size, C) -> (num_windows, C, window_size)
                     modality_data = np.transpose(modality_data, (0, 2, 1))
 
@@ -380,6 +389,7 @@ class OpenPackPreprocessor(BasePreprocessor):
             'window_size': self.window_size,
             'stride': self.stride,
             'normalization': 'none',  # 正規化なし（生データ保持）
+            'gyro_scale_factor': self.gyro_scale_factor,
             'users': {}
         }
 
