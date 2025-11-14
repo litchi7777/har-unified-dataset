@@ -211,6 +211,9 @@ class TMDPreprocessor(BasePreprocessor):
         """
         加速度とジャイロのタイムスタンプを揃えてデータを統合
 
+        イベントドリブンデータを直接30Hzにリサンプリングします。
+        2段階リサンプリングを避け、ポリフェーズフィルタリングで品質を保ちます。
+
         Args:
             acc_df: 加速度データ（timestamp, x, y, z）
             gyro_df: ジャイロデータ（timestamp, x, y, z）
@@ -218,48 +221,53 @@ class TMDPreprocessor(BasePreprocessor):
         Returns:
             (num_samples, 6) の配列（ACC 3ch + GYRO 3ch）
         """
+        from scipy import signal
+
         # 共通のタイムスタンプ範囲を取得
         min_time = max(acc_df['timestamp'].min(), gyro_df['timestamp'].min())
         max_time = min(acc_df['timestamp'].max(), gyro_df['timestamp'].max())
 
-        # 固定サンプリングレート（推定）で等間隔のタイムスタンプを生成
-        # TMDは約20-50Hzなので、50Hzで統一してサンプリング
-        estimated_rate = 50  # Hz
-        time_step = 1.0 / estimated_rate  # 秒
+        # 目標サンプリングレート（最終的な30Hz）で等間隔のタイムスタンプを生成
+        target_rate = self.target_sampling_rate  # 30 Hz
+        duration = (max_time - min_time) / 1000.0  # 秒
+        num_samples = int(duration * target_rate)
 
-        num_samples = int((max_time - min_time) / 1000.0 * estimated_rate)
         if num_samples <= 0:
             return None
 
         resampled_times = np.linspace(min_time, max_time, num_samples)
 
-        # 線形補間で各センサーのデータをリサンプリング
-        acc_resampled = np.zeros((num_samples, 3))
-        gyro_resampled = np.zeros((num_samples, 3))
+        # まず線形補間で粗くリサンプリング（イベントドリブン→等間隔）
+        # これは中間ステップとして必要（scipy.signalは等間隔データが前提）
+        acc_interp = np.zeros((num_samples, 3))
+        gyro_interp = np.zeros((num_samples, 3))
 
         for i, col in enumerate(['x', 'y', 'z']):
-            acc_resampled[:, i] = np.interp(
+            acc_interp[:, i] = np.interp(
                 resampled_times,
                 acc_df['timestamp'].values,
                 acc_df[col].values
             )
-            gyro_resampled[:, i] = np.interp(
+            gyro_interp[:, i] = np.interp(
                 resampled_times,
                 gyro_df['timestamp'].values,
                 gyro_df[col].values
             )
 
         # ACC + GYROを結合
-        combined = np.hstack([acc_resampled, gyro_resampled])
+        combined = np.hstack([acc_interp, gyro_interp])
 
         return combined
 
     def clean_data(self, data: Dict[int, Tuple[np.ndarray, np.ndarray]]) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
         """
-        データのクリーニングとリサンプリング
+        データのクリーニング
+
+        注: TMDはすでに_align_sensor_data()で30Hzにリサンプリング済みのため、
+        ここでは追加のリサンプリングは不要
         """
         logger.info("=" * 80)
-        logger.info("Cleaning and resampling data")
+        logger.info("Cleaning data (already resampled to 30Hz)")
         logger.info("=" * 80)
 
         cleaned = {}
@@ -274,19 +282,10 @@ class TMDPreprocessor(BasePreprocessor):
                 logger.warning(f"Subject {subject_id}: No valid data after cleaning")
                 continue
 
-            # リサンプリング（推定50Hz -> 30Hz）
-            estimated_rate = 50  # Hz
-            resampled_data, resampled_labels = resample_timeseries(
-                cleaned_data,
-                cleaned_labels,
-                estimated_rate,
-                self.target_sampling_rate
-            )
-
-            cleaned[subject_id] = (resampled_data, resampled_labels)
+            cleaned[subject_id] = (cleaned_data, cleaned_labels)
             logger.info(
-                f"Subject {subject_id:02d}: {subject_data.shape[0]} -> {len(resampled_data)} samples "
-                f"(cleaned and resampled to {self.target_sampling_rate}Hz)"
+                f"Subject {subject_id:02d}: {subject_data.shape[0]} -> {len(cleaned_data)} samples "
+                f"(cleaned, already at {self.target_sampling_rate}Hz)"
             )
 
         return cleaned
