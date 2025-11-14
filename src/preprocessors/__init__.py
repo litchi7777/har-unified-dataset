@@ -96,6 +96,11 @@ except ImportError:
     pass
 
 try:
+    from .realworld import RealWorldPreprocessor
+except ImportError:
+    pass
+  
+try:
     from .lara import LaraPreprocessor
 except ImportError:
     pass
@@ -141,9 +146,19 @@ try:
     from .paal import PAALPreprocessor
 except ImportError:
     pass
-
+  
 try:
     from .hhar import HHARPreprocessor
+except ImportError:
+    pass
+  
+try:
+    from .wisdm import WISDMPreprocessor
+except ImportError:
+    pass
+
+try:
+    from .tmd import TMDPreprocessor
 except ImportError:
     pass
 

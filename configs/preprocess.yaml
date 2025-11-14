@@ -184,6 +184,12 @@ datasets:
     original_sampling_rate: 50  # Hz (元データ)
     # sampling_rateは30Hzにリサンプリングされる
 
+  realworld:
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+    target_sampling_rate: 30
+    window_size: 60
+    stride: 12
   # LARa (Logistic Activity Recognition) Dataset
   lara:
     # データパス
@@ -295,12 +301,24 @@ datasets:
   hhar:
     raw_data_path: data/raw
     processed_data_path: data/processed
-    target_sampling_rate: 60
-    window_size: 60
+    target_sampling_rate: 30
+    window_size: 150
     stride: 12
     max_gap_sec: 1.5
     min_segment_sec:  0.98333333333 # = 59/60 #(window_size - 1) / target_sampling_rate
 
+  wisdm:
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+    target_sampling_rate: 30
+    window_size: 150
+    stride: 30
+
+    # データセット情報（参考用）
+    num_activities: 18
+    num_subjects: 51
+    num_channels: 12
+    original_sampling_rate: 20
 
 # ロギング設定
 logging:

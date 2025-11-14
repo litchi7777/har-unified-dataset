@@ -51,6 +51,42 @@ DATASETS = {
             5: "StairsDown",
         },
     },
+    "WISDM": {
+        "sensor_list": ["Phone", "Watch"],
+        "modalities": ["ACC", "GYRO"],
+        "n_classes": 18,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 20,  # Hz
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
+        "has_undefined_class": False,
+        "labels": {
+            0: "Walking", 1: "Jogging", 2: "Stairs",
+            3: "Sitting", 4: "Standing", 5: "Typing",
+            6: "BrushingTeeth", 7: "EatingSoup", 8: "EatingChips",
+            9: "EatingPasta", 10: "Drinking", 11: "EatingSandwich",
+            12: "Kicking", 13: "Catching", 14: "Dribbling",
+            15: "Writing", 16: "Clapping", 17: "FoldingClothes"
+        },
+    },
+    "REALWORLD": {
+        "sensor_list": ["Chest", "Forearm", "Head", "Shin", "Thigh", "UpperArm", "Waist"],
+        "modalities": ["ACC", "GYRO", "MAG"],
+        "n_classes": 8,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 50,  # Hz
+        "scale_factor": None,  # センサーの単位による（要確認）
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'ClimbingDown',
+            1: 'ClimbingUp',
+            2: 'Jumping',
+            3: 'Lying',
+            4: 'Running',
+            5: 'Sitting',
+            6: 'Standing',
+            7: 'Walking'
+        },
+    },
     "PAMAP2": {
         "sensor_list": ["hand", "chest", "ankle"],
         "modalities": {
@@ -202,7 +238,7 @@ DATASETS = {
         "n_classes": 33,
         "sampling_rate": 30,  # Hz (リサンプリング後)
         "original_sampling_rate": 50,  # Hz (推定値)
-        "scale_factor": None,  # 単位要確認（おそらくG単位）
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
         "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
         "labels": {
             0: 'Walking', 1: 'Jogging', 2: 'Running', 3: 'Jump up',
@@ -353,6 +389,22 @@ DATASETS = {
             21: 'Washing Dishes',
             22: 'Washing Hands',
             23: 'Writing'
+        },
+    },
+    "TMD": {
+        "sensor_list": ["Smartphone"],  # 単一スマートフォンセンサー
+        "modalities": ["ACC", "GYRO"],  # 加速度とジャイロスコープ
+        "n_classes": 5,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": None,  # 可変サンプリングレート（イベントドリブン）
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（Androidセンサーはm/s^2単位）
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Walking',
+            1: 'Car',
+            2: 'Still',
+            3: 'Train',
+            4: 'Bus'
         },
     },
 }
