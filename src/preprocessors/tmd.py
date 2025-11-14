@@ -211,8 +211,8 @@ class TMDPreprocessor(BasePreprocessor):
         """
         加速度とジャイロのタイムスタンプを揃えてデータを統合
 
-        イベントドリブンデータを直接30Hzにリサンプリングします。
-        2段階リサンプリングを避け、ポリフェーズフィルタリングで品質を保ちます。
+        イベントドリブンデータを高密度補間→ポリフェーズフィルタリングで30Hzにリサンプリング。
+        情報損失を最小限に抑えます。
 
         Args:
             acc_df: 加速度データ（timestamp, x, y, z）
@@ -227,35 +227,59 @@ class TMDPreprocessor(BasePreprocessor):
         min_time = max(acc_df['timestamp'].min(), gyro_df['timestamp'].min())
         max_time = min(acc_df['timestamp'].max(), gyro_df['timestamp'].max())
 
-        # 目標サンプリングレート（最終的な30Hz）で等間隔のタイムスタンプを生成
-        target_rate = self.target_sampling_rate  # 30 Hz
         duration = (max_time - min_time) / 1000.0  # 秒
-        num_samples = int(duration * target_rate)
 
-        if num_samples <= 0:
+        if duration <= 0:
             return None
 
-        resampled_times = np.linspace(min_time, max_time, num_samples)
+        # ステップ1: 高密度補間（1ms = 1000Hz）でイベントドリブン→等間隔
+        # これにより元データの情報を最大限保持
+        high_rate = 1000  # Hz (1ms間隔)
+        num_high_samples = int(duration * high_rate)
 
-        # まず線形補間で粗くリサンプリング（イベントドリブン→等間隔）
-        # これは中間ステップとして必要（scipy.signalは等間隔データが前提）
-        acc_interp = np.zeros((num_samples, 3))
-        gyro_interp = np.zeros((num_samples, 3))
+        if num_high_samples <= 0:
+            return None
+
+        high_res_times = np.linspace(min_time, max_time, num_high_samples)
+
+        # 線形補間で高密度化
+        acc_high = np.zeros((num_high_samples, 3))
+        gyro_high = np.zeros((num_high_samples, 3))
 
         for i, col in enumerate(['x', 'y', 'z']):
-            acc_interp[:, i] = np.interp(
-                resampled_times,
+            acc_high[:, i] = np.interp(
+                high_res_times,
                 acc_df['timestamp'].values,
                 acc_df[col].values
             )
-            gyro_interp[:, i] = np.interp(
-                resampled_times,
+            gyro_high[:, i] = np.interp(
+                high_res_times,
                 gyro_df['timestamp'].values,
                 gyro_df[col].values
             )
 
+        # ステップ2: ポリフェーズフィルタリングで1000Hz→30Hzにダウンサンプリング
+        # アンチエイリアスフィルタが自動的に適用される
+        target_rate = self.target_sampling_rate  # 30 Hz
+
+        # リサンプリング比率を計算
+        from math import gcd
+        up = target_rate
+        down = high_rate
+        common_divisor = gcd(up, down)
+        up = up // common_divisor
+        down = down // common_divisor
+
+        # 各チャンネルをポリフェーズフィルタリング
+        acc_resampled = np.zeros((signal.resample_poly(acc_high[:, 0], up, down).shape[0], 3))
+        gyro_resampled = np.zeros((signal.resample_poly(gyro_high[:, 0], up, down).shape[0], 3))
+
+        for i in range(3):
+            acc_resampled[:, i] = signal.resample_poly(acc_high[:, i], up, down)
+            gyro_resampled[:, i] = signal.resample_poly(gyro_high[:, i], up, down)
+
         # ACC + GYROを結合
-        combined = np.hstack([acc_interp, gyro_interp])
+        combined = np.hstack([acc_resampled, gyro_resampled])
 
         return combined
 
