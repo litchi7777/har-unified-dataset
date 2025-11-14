@@ -96,6 +96,11 @@ except ImportError:
     pass
 
 try:
+    from .realworld import RealWorldPreprocessor
+except ImportError:
+    pass
+  
+try:
     from .lara import LaraPreprocessor
 except ImportError:
     pass

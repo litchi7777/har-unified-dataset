@@ -46,6 +46,25 @@ DATASETS = {
             15: "Writing", 16: "Clapping", 17: "FoldingClothes"
         },
     },
+    "REALWORLD": {
+        "sensor_list": ["Chest", "Forearm", "Head", "Shin", "Thigh", "UpperArm", "Waist"],
+        "modalities": ["ACC", "GYRO", "MAG"],
+        "n_classes": 8,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 50,  # Hz
+        "scale_factor": None,  # センサーの単位による（要確認）
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'ClimbingDown',
+            1: 'ClimbingUp',
+            2: 'Jumping',
+            3: 'Lying',
+            4: 'Running',
+            5: 'Sitting',
+            6: 'Standing',
+            7: 'Walking'
+        },
+    },
     "PAMAP2": {
         "sensor_list": ["hand", "chest", "ankle"],
         "modalities": {
