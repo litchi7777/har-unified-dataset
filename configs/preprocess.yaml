@@ -187,9 +187,16 @@ datasets:
   realworld:
     raw_data_path: data/raw
     processed_data_path: data/processed
-    target_sampling_rate: 30
-    window_size: 60
-    stride: 12
+    target_sampling_rate: 30  # Hz (元は50Hzからリサンプリング)
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 8     # 8種類の活動
+    num_subjects: 15      # 15人の被験者
+    num_sensors: 7        # Chest, Forearm, Head, Shin, Thigh, UpperArm, Waist
+    num_channels: 63      # 7センサー × 9チャンネル (ACC:3 + GYRO:3 + MAG:3)
+    original_sampling_rate: 50  # Hz (元データ)
   # LARa (Logistic Activity Recognition) Dataset
   lara:
     # データパス
@@ -301,24 +308,32 @@ datasets:
   hhar:
     raw_data_path: data/raw
     processed_data_path: data/processed
-    target_sampling_rate: 30
-    window_size: 150
-    stride: 12
-    max_gap_sec: 1.5
-    min_segment_sec:  0.98333333333 # = 59/60 #(window_size - 1) / target_sampling_rate
+    target_sampling_rate: 30  # Hz (デバイスごとに異なる元レートからリサンプリング)
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+    max_gap_sec: 1.5      # セグメント分割のための最大ギャップ
+    min_segment_sec: 0.9833333333  # 最小セグメント長（約59サンプル）
+
+    # データセット情報（参考用）
+    num_activities: 6     # Bike, Sit, Stand, Walk, StairsUp, StairsDown
+    num_subjects: 9       # 異なるユーザー
+    num_devices: 12       # nexus4_1/2, s3_1/2, s3mini_1/2, samsungold_1/2, gear_1/2, lgwatch_1/2
+    num_channels: 6       # ACC:3 + GYRO:3
+    original_sampling_rate: null  # デバイスごとに異なる（50-200Hz）
 
   wisdm:
     raw_data_path: data/raw
     processed_data_path: data/processed
-    target_sampling_rate: 30
-    window_size: 150
-    stride: 30
+    target_sampling_rate: 30  # Hz (元は20Hzからリサンプリング)
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
 
     # データセット情報（参考用）
-    num_activities: 18
-    num_subjects: 51
-    num_channels: 12
-    original_sampling_rate: 20
+    num_activities: 18    # Walking, Jogging, Stairs, Sitting, Standing, Typing, BrushingTeeth, etc.
+    num_subjects: 51      # 51人の被験者
+    num_sensors: 2        # Phone, Watch
+    num_channels: 12      # 2センサー × (ACC:3 + GYRO:3)
+    original_sampling_rate: 20  # Hz (元データ)
 
 # ロギング設定
 logging:

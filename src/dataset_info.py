@@ -37,8 +37,8 @@ DATASETS = {
         ],
         "modalities": ["ACC", "GYRO"],
         "n_classes": 6,
-        "sampling_rate": 60,  # Hz (前処理での目標レート)
-        "original_sampling_rate": None,  # デバイスごとに異なる
+        "sampling_rate": 30,  # Hz (リサンプリング後、他のデータセットと統一)
+        "original_sampling_rate": None,  # デバイスごとに異なる（50-200Hz）
         "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
         "has_undefined_class": True,  # gt='null' を -1 で扱う
         "labels": {
