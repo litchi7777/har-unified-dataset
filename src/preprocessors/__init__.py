@@ -146,7 +146,12 @@ try:
     from .paal import PAALPreprocessor
 except ImportError:
     pass
-
+  
+try:
+    from .hhar import HHARPreprocessor
+except ImportError:
+    pass
+  
 try:
     from .wisdm import WISDMPreprocessor
 except ImportError:
