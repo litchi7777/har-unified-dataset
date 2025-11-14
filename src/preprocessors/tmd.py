@@ -171,24 +171,8 @@ class TMDPreprocessor(BasePreprocessor):
         Returns:
             (num_samples, 6) の配列（ACC 3ch + GYRO 3ch）
         """
-        # CSVを読み込む（ヘッダーなし）
-        try:
-            df = pd.read_csv(csv_file, header=None, names=['timestamp', 'sensor_type', 'x', 'y', 'z'])
-        except:
-            # カンマ区切りが正しくない場合があるため、手動でパース
-            return self._parse_csv_manual(csv_file)
-
-        # 加速度とジャイロのデータを抽出
-        acc_data = df[df['sensor_type'] == 'android.sensor.accelerometer'][['timestamp', 'x', 'y', 'z']]
-        gyro_data = df[df['sensor_type'] == 'android.sensor.gyroscope'][['timestamp', 'x', 'y', 'z']]
-
-        if len(acc_data) == 0 or len(gyro_data) == 0:
-            return None
-
-        # タイムスタンプで統合（最も近いタイムスタンプをマッチング）
-        combined_data = self._align_sensor_data(acc_data, gyro_data)
-
-        return combined_data
+        # TMDのCSVは各行で異なるカラム数を持つため、手動でパース
+        return self._parse_csv_manual(csv_file)
 
     def _parse_csv_manual(self, csv_file: Path) -> np.ndarray:
         """
