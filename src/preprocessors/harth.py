@@ -22,10 +22,18 @@ from .utils import (
     resample_timeseries,
     get_class_distribution
 )
+from .common import (
+    download_file,
+    extract_archive,
+    check_dataset_exists
+)
 from . import register_preprocessor
 from ..dataset_info import DATASETS
 
 logger = logging.getLogger(__name__)
+
+# HARTH データセットのURL（手動ダウンロードが必要）
+HARTH_URL = None  # 手動ダウンロードのみ
 
 
 @register_preprocessor('harth')
@@ -104,6 +112,59 @@ class HarthPreprocessor(BasePreprocessor):
 
     def get_dataset_name(self) -> str:
         return 'harth'
+
+    def download_dataset(self) -> None:
+        """
+        HARTHデータセットのダウンロード（手動ダウンロードのみサポート）
+
+        既に解凍済みでZIPファイルが残っている場合は削除を提案
+        """
+        logger.info("=" * 80)
+        logger.info("HARTH dataset setup")
+        logger.info("=" * 80)
+
+        dataset_path = self.raw_data_path / self.dataset_name
+
+        # データディレクトリが存在するかチェック
+        data_dir = dataset_path / self.dataset_name
+        data_exists = data_dir.exists() and any(data_dir.glob('S*.csv'))
+
+        # ZIPファイルが存在するかチェック
+        zip_path = dataset_path / "harth.zip"
+        if zip_path.exists() and data_exists:
+            logger.warning(f"HARTH data is already extracted at {dataset_path}")
+            logger.warning(f"ZIP file still exists: {zip_path} ({zip_path.stat().st_size / 1024 / 1024:.1f} MB)")
+            try:
+                response = input("Do you want to delete the ZIP file? (Y/n): ")
+                if response.lower() != 'n':
+                    logger.info(f"Deleting {zip_path}")
+                    zip_path.unlink()
+                    logger.info("ZIP file deleted successfully")
+                else:
+                    logger.info("Keeping ZIP file")
+            except EOFError:
+                # 非対話環境の場合はデフォルトでYes
+                logger.info(f"Non-interactive mode: Deleting {zip_path}")
+                zip_path.unlink()
+                logger.info("ZIP file deleted successfully")
+            return
+
+        # データセットが存在するかチェック（ZIPなし）
+        if data_exists:
+            logger.info(f"HARTH data already exists at {dataset_path}")
+            return
+
+        # 手動ダウンロードの案内
+        logger.info("HARTH dataset requires manual download:")
+        logger.info("  1. Visit: https://archive.ics.uci.edu/dataset/779/harth")
+        logger.info("  2. Download: harth.zip")
+        logger.info(f"  3. Extract to: {dataset_path}/")
+        logger.info("  Expected structure: data/raw/harth/harth/S006.csv, ...")
+        logger.info("=" * 80)
+        raise NotImplementedError(
+            "HARTH dataset must be downloaded manually.\n"
+            "Visit: https://archive.ics.uci.edu/dataset/779/harth"
+        )
 
     def load_raw_data(self) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
         """

@@ -44,10 +44,6 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
-# Visualization outputs
-outputs/*.html
-!outputs/.gitkeep
-
 # Logs
 *.log
 logs/
@@ -68,3 +64,6 @@ Thumbs.db
 *.swp
 *.swo
 temp/
+
+# Claude Code configuration
+.claude/

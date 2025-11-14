@@ -2,10 +2,11 @@
 OpenPack データセット前処理
 
 OpenPack データセット:
-- **アクティビティ**: 11クラス（0-9 + undefined/-1）の物流作業操作
+- **アクティビティ**: 9クラス（0-8 + undefined/-1）の物流作業操作
   - 0: Assemble, 1: Insert, 2: Put, 3: Walk, 4: Pick,
-  - 5: Scan, 6: Press, 7: Open, 8: Close, 9: Other
-  - -1: Undefined（無操作・ラベルなし）
+  - 5: Scan, 6: Press, 7: Open, 8: Close
+  - -1: Undefined（無操作・ラベルなし・その他）
+  - 注: 生データのoperation=10（その他/不明、約0.7%）は未定義クラスとして除外
 - **被験者**: データセットに応じて可変（通常U0101-U0110など）
 - **センサー**: 4つのATR TSND151 IMUセンサー（atr01, atr02, atr03, atr04）
   - 各センサー: ACC (3軸), GYRO (3軸), QUAT (4値) = 10チャンネル
@@ -56,7 +57,7 @@ class OpenPackPreprocessor(BasePreprocessor):
         super().__init__(config)
 
         # OpenPack固有の設定
-        self.num_activities = 10  # 操作クラス（0-9）+ undefined (-1)で実質11クラス
+        self.num_activities = 9  # 操作クラス（0-8）+ undefined (-1)で実質10クラス
         self.num_subjects = None  # データセットに応じて可変（動的に検出）
         self.num_sensors = 4  # ATR TSND151 IMU × 4
         self.num_channels = 40  # 4 sensors × 10 channels (acc:3 + gyro:3 + quat:4)
@@ -233,10 +234,13 @@ class OpenPackPreprocessor(BasePreprocessor):
                 sensor_data = df[sensor_columns].values
                 labels = df['operation'].values.astype(int)
 
-                # operation 0（無操作）を-1に変換、それ以外を0-indexedに変換
-                # 0 -> -1 (未定義クラス)
-                # 1 -> 0, 2 -> 1, ... (有効なクラス)
-                labels = np.where(labels == 0, -1, labels - 1)
+                # ラベル変換:
+                # - operation=0（無操作）-> label=-1（未定義クラス）
+                # - operation=1-9 -> label=0-8（有効な9クラス）
+                # - operation=10（その他/不明）-> label=-1（未定義クラスとして除外）
+                # 注: データには operation=0-10 が含まれるが、operation=10は約0.7%と少なく、
+                #     定義も不明確なため未定義クラスとして扱う
+                labels = np.where((labels == 0) | (labels == 10), -1, labels - 1)
 
                 # 被験者ごとに結合
                 if user_id not in person_data:

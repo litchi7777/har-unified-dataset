@@ -1553,6 +1553,49 @@ def load_metadata(dataset_name):
         return json.load(f)
 
 
+def scan_users_lazy(dataset_name):
+    """
+    ディレクトリをスキャンしてユーザー一覧を遅延取得
+
+    metadata.jsonにusersキーがない場合のフォールバック
+    """
+    dataset_path = DATA_DIR / dataset_name
+    if not dataset_path.exists():
+        return {}
+
+    users = {}
+    for user_dir in sorted(dataset_path.glob("USER*")):
+        if not user_dir.is_dir():
+            continue
+
+        user_id = user_dir.name
+        user_data = {"sensor_modalities": {}}
+
+        # センサー/モダリティの組み合わせを探す
+        for sensor_dir in user_dir.iterdir():
+            if not sensor_dir.is_dir():
+                continue
+
+            for modality_dir in sensor_dir.iterdir():
+                if not modality_dir.is_dir():
+                    continue
+
+                sensor_modality_key = f"{sensor_dir.name}/{modality_dir.name}"
+
+                # labels.npyの存在確認（データの有無）
+                labels_path = modality_dir / "labels.npy"
+                if labels_path.exists():
+                    # 遅延ロード：形状情報は取得しない（高速化）
+                    user_data["sensor_modalities"][sensor_modality_key] = {
+                        "lazy_loaded": True
+                    }
+
+        if user_data["sensor_modalities"]:
+            users[user_id] = user_data
+
+    return users
+
+
 def load_sensor_data(dataset_name, user_id, sensor_name):
     """センサーデータを読み込む
 
@@ -1766,7 +1809,12 @@ def api_tree():
         # Y.npyを読み込んでクラス情報を取得
         try:
             Y = np.load(y_path)
-            unique_classes = sorted(np.unique(Y).astype(int).tolist())
+            # 1次元配列の場合のみ処理（ラベル）
+            if Y.ndim == 1:
+                unique_classes = sorted(np.unique(Y).astype(int).tolist())
+            else:
+                # 2次元以上の場合はスキップ（旧PAAL形式のY軸データ等）
+                continue
         except Exception as e:
             print(f"Error loading {y_path}: {e}")
             continue
@@ -1893,6 +1941,9 @@ def api_statistics():
         # Y.npyを読み込んでクラス分布を取得
         try:
             Y = np.load(y_path)
+            # 1次元配列の場合のみ処理（ラベル）
+            if Y.ndim != 1:
+                continue
             unique_classes = np.unique(Y)
 
             for cls in unique_classes:
@@ -2055,6 +2106,11 @@ def dataset_detail(dataset_name):
     metadata = load_metadata(dataset_name)
     if metadata is None:
         return f"Dataset '{dataset_name}' not found", 404
+
+    # metadata.jsonにusersキーがない場合は遅延ロード
+    if 'users' not in metadata:
+        users = scan_users_lazy(dataset_name)
+        metadata['users'] = users
 
     return render_template_string(DATASET_TEMPLATE,
                                   dataset_name=dataset_name,

@@ -1,12 +1,12 @@
 """
-HAR70+ データセット前処理
+MEx (Multi-modal Exercise) データセット前処理
 
-HAR70+ データセット:
-- 7種類の身体活動（高齢者向け）
-- 18人の被験者（70-95歳）
-- 2つのセンサー（腰部、右大腿部）
-- サンプリングレート: 50Hz
-- 加速度センサーのみ（3軸、G単位）
+MEx データセット:
+- 7種類の理学療法エクササイズ
+- 30人の被験者
+- 2つのAccelerometer（手首、太もも）
+- サンプリングレート: 100Hz
+- 加速度センサー（3軸、±8g、G単位）
 """
 
 import numpy as np
@@ -25,6 +25,7 @@ from .utils import (
 from .common import (
     download_file,
     extract_archive,
+    cleanup_temp_files,
     check_dataset_exists
 )
 from . import register_preprocessor
@@ -32,47 +33,47 @@ from ..dataset_info import DATASETS
 
 logger = logging.getLogger(__name__)
 
-# HAR70+ データセットのURL（手動ダウンロードが必要）
-HAR70PLUS_URL = None  # 手動ダウンロードのみ
+# MEXデータセットのダウンロードURL
+MEX_URL = "https://archive.ics.uci.edu/static/public/500/mex.zip"
 
 
-@register_preprocessor('har70plus')
-class Har70plusPreprocessor(BasePreprocessor):
+@register_preprocessor('mex')
+class MexPreprocessor(BasePreprocessor):
     """
-    HAR70+データセット用の前処理クラス
+    MEXデータセット用の前処理クラス
     """
 
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
 
-        # HAR70+固有の設定
+        # MEx固有の設定
         self.num_activities = 7
-        self.num_subjects = 18
+        self.num_subjects = 30
         self.num_sensors = 2
         self.num_channels = 6  # 2センサー × 3軸
 
         # センサー名とチャンネルマッピング
         # チャンネル構成:
-        # LowerBack: ACC(3) = 3
-        # RightThigh: ACC(3) = 3
-        self.sensor_names = ['LowerBack', 'RightThigh']
+        # Wrist: ACC(3) = 3
+        # Thigh: ACC(3) = 3
+        self.sensor_names = ['Wrist', 'Thigh']
         self.sensor_channel_ranges = {
-            'LowerBack': (0, 3),   # channels 0-2
-            'RightThigh': (3, 6)   # channels 3-5
+            'Wrist': (0, 3),   # channels 0-2
+            'Thigh': (3, 6)    # channels 3-5
         }
 
         # モダリティ（各センサー内のチャンネル分割）
         self.sensor_modalities = {
-            'LowerBack': {
+            'Wrist': {
                 'ACC': (0, 3)   # 3軸加速度
             },
-            'RightThigh': {
+            'Thigh': {
                 'ACC': (0, 3)   # 3軸加速度
             }
         }
 
         # サンプリングレート
-        self.original_sampling_rate = 50  # Hz (HAR70+のオリジナル)
+        self.original_sampling_rate = 100  # Hz (MEXのオリジナル)
         self.target_sampling_rate = config.get('target_sampling_rate', 30)  # Hz (目標)
 
         # 前処理パラメータ
@@ -80,148 +81,179 @@ class Har70plusPreprocessor(BasePreprocessor):
         self.stride = config.get('stride', 30)  # 1秒 @ 30Hz
 
         # スケーリング係数（既にG単位なので不要）
-        self.scale_factor = DATASETS.get('HAR70PLUS', {}).get('scale_factor', None)
-
-        # ラベルマッピング（元の連番でないラベル → 0-indexed）
-        # 1 -> 0 (Walking)
-        # 3 -> 1 (Shuffling)
-        # 4 -> 2 (Stairs Up)
-        # 5 -> 3 (Stairs Down)
-        # 6 -> 4 (Standing)
-        # 7 -> 5 (Sitting)
-        # 8 -> 6 (Lying)
-        self.label_mapping = {
-            1: 0,  # Walking
-            3: 1,  # Shuffling
-            4: 2,  # Stairs Up
-            5: 3,  # Stairs Down
-            6: 4,  # Standing
-            7: 5,  # Sitting
-            8: 6   # Lying
-        }
+        self.scale_factor = DATASETS.get('MEX', {}).get('scale_factor', None)
 
     def get_dataset_name(self) -> str:
-        return 'har70plus'
+        return 'mex'
 
     def download_dataset(self) -> None:
         """
-        HAR70+データセットのダウンロード（手動ダウンロードのみサポート）
-
-        既に解凍済みでZIPファイルが残っている場合は削除を提案
+        MEXデータセットをダウンロードして解凍
         """
         logger.info("=" * 80)
-        logger.info("HAR70+ dataset setup")
+        logger.info("Downloading MEX dataset")
         logger.info("=" * 80)
 
         dataset_path = self.raw_data_path / self.dataset_name
 
-        # データディレクトリが存在するかチェック
-        data_dir = dataset_path / self.dataset_name
-        data_exists = data_dir.exists() and any(data_dir.glob('*.csv'))
+        # 既にデータが存在するかチェック
+        if check_dataset_exists(dataset_path, required_files=['act/*/01_act_1.csv']):
+            logger.warning(f"MEX data already exists at {dataset_path}")
+            response = input("Do you want to re-download? (y/N): ")
+            if response.lower() != 'y':
+                logger.info("Skipping download")
+                return
 
-        # ZIPファイルが存在するかチェック
-        zip_path = dataset_path / "har70plus.zip"
-        if zip_path.exists() and data_exists:
-            logger.warning(f"HAR70+ data is already extracted at {dataset_path}")
-            logger.warning(f"ZIP file still exists: {zip_path} ({zip_path.stat().st_size / 1024 / 1024:.1f} MB)")
-            try:
-                response = input("Do you want to delete the ZIP file? (Y/n): ")
-                if response.lower() != 'n':
-                    logger.info(f"Deleting {zip_path}")
-                    zip_path.unlink()
-                    logger.info("ZIP file deleted successfully")
-                else:
-                    logger.info("Keeping ZIP file")
-            except EOFError:
-                # 非対話環境の場合はデフォルトでYes
-                logger.info(f"Non-interactive mode: Deleting {zip_path}")
+        try:
+            # 1. ダウンロード
+            logger.info("Step 1/3: Downloading archive")
+            zip_path = self.raw_data_path / "mex.zip"
+            download_file(MEX_URL, zip_path, desc='Downloading MEX')
+
+            # 2. 外側のZIPファイルの解凍（一時ディレクトリに）
+            logger.info("Step 2/3: Extracting outer archive")
+            temp_dir = self.raw_data_path / "mex_temp"
+            extract_archive(zip_path, temp_dir, desc='Extracting MEX outer archive')
+
+            # 3. ネストされたdata.zipを確認して解凍
+            logger.info("Step 3/3: Extracting nested data.zip")
+            nested_zip = temp_dir / "data.zip"
+            if nested_zip.exists():
+                dataset_path.mkdir(parents=True, exist_ok=True)
+                extract_archive(nested_zip, dataset_path, desc='Extracting MEX data')
+                nested_zip.unlink()
+            else:
+                logger.error(f"data.zip not found in {temp_dir}")
+                raise FileNotFoundError(f"Expected data.zip in {temp_dir}")
+
+            # クリーンアップ
+            if zip_path.exists():
                 zip_path.unlink()
-                logger.info("ZIP file deleted successfully")
-            return
+            if temp_dir.exists():
+                import shutil
+                shutil.rmtree(temp_dir)
 
-        # データセットが存在するかチェック（ZIPなし）
-        if data_exists:
-            logger.info(f"HAR70+ data already exists at {dataset_path}")
-            return
+            logger.info(f"MEX dataset downloaded and extracted to {dataset_path}")
+            logger.info("=" * 80)
 
-        # 手動ダウンロードの案内
-        logger.info("HAR70+ dataset requires manual download:")
-        logger.info("  1. Visit: https://archive.ics.uci.edu/dataset/780/har70")
-        logger.info("  2. Download: har70plus.zip")
-        logger.info(f"  3. Extract to: {dataset_path}/")
-        logger.info("  Expected structure: data/raw/har70plus/har70plus/501.csv, ...")
-        logger.info("=" * 80)
-        raise NotImplementedError(
-            "HAR70+ dataset must be downloaded manually.\n"
-            "Visit: https://archive.ics.uci.edu/dataset/780/har70"
-        )
+        except Exception as e:
+            logger.error(f"Failed to download MEX dataset: {e}")
+            raise
 
     def load_raw_data(self) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
         """
-        HAR70+の生データを被験者ごとに読み込む
+        MEXの生データを被験者ごとに読み込む
 
         想定フォーマット:
-        - data/raw/har70plus/har70plus/501.csv
-        - 各ファイル: timestamp, back_x, back_y, back_z, thigh_x, thigh_y, thigh_z, label
+        - data/raw/mex/MEx/acw/{subject_id}/{exercise_id}.txt (wrist accelerometer)
+        - data/raw/mex/MEx/act/{subject_id}/{exercise_id}.txt (thigh accelerometer)
+        - 各ファイル: timestamp x y z (スペース区切り)
+        - エクササイズID: 1-7 (エクササイズ4は左右2回: 4L.txt, 4R.txt)
+        - ラベル: 0-6 (0-indexed)
 
         Returns:
             person_data: {person_id: (data, labels)} の辞書
-                data: (num_samples, 6) の配列 [back_xyz, thigh_xyz]
+                data: (num_samples, 6) の配列 [wrist_xyz, thigh_xyz]
                 labels: (num_samples,) の配列（0-indexed）
         """
-        raw_path = self.raw_data_path / self.dataset_name / self.dataset_name
+        raw_path = self.raw_data_path / self.dataset_name
 
         if not raw_path.exists():
             raise FileNotFoundError(
-                f"HAR70+ raw data not found at {raw_path}\n"
-                "Expected structure: data/raw/har70plus/har70plus/501.csv"
+                f"MEx raw data not found at {raw_path}\n"
+                "Expected structure: data/raw/mex/acw/, data/raw/mex/act/"
+            )
+
+        acw_path = raw_path / "acw"  # wrist accelerometer
+        act_path = raw_path / "act"  # thigh accelerometer
+
+        if not acw_path.exists() or not act_path.exists():
+            raise FileNotFoundError(
+                f"MEx sensor folders not found\n"
+                f"Expected: {acw_path} and {act_path}"
             )
 
         # 被験者ごとにデータを格納
         result = {}
 
-        # 被験者IDは501~518（18人）
-        subject_ids = list(range(501, 519))
+        # 被験者IDは1-30（フォルダ名は01, 02, ... 30で0パディング）
+        for subject_id in range(1, 31):
+            subject_str = f"{subject_id:02d}"  # 01, 02, ... 30
+            subject_acw_dir = acw_path / subject_str
+            subject_act_dir = act_path / subject_str
 
-        # person_idは1-indexedで管理（USER00001から開始）
-        for idx, subject_id in enumerate(subject_ids):
-            subject_file = raw_path / f"{subject_id}.csv"
-
-            if not subject_file.exists():
-                logger.warning(f"Subject file not found: {subject_file}")
+            if not subject_acw_dir.exists() or not subject_act_dir.exists():
+                logger.warning(f"Subject {subject_id} folders not found, skipping")
                 continue
 
-            try:
-                # CSVデータ読み込み
-                df = pd.read_csv(subject_file)
+            # 各被験者の全エクササイズデータを統合
+            all_wrist_data = []
+            all_thigh_data = []
+            all_labels = []
 
-                # カラム: timestamp, back_x, back_y, back_z, thigh_x, thigh_y, thigh_z, label
-                if len(df.columns) != 8:
-                    logger.warning(
-                        f"Unexpected number of columns in {subject_file}: "
-                        f"{len(df.columns)} (expected 8)"
-                    )
+            # エクササイズファイルをロード (1-7)
+            # ファイル名形式: {subject_id}_act_{ex_id}.csv と {subject_id}_acw_{ex_id}.csv
+            # エクササイズ4は2ファイル（04_act_1.csv, 04_act_2.csv）
+            exercise_files = []
+            for ex_id in range(1, 8):
+                if ex_id == 4:
+                    # エクササイズ4は2回実施（_1と_2）
+                    exercise_files.append((f"{ex_id:02d}_act_1.csv", f"{ex_id:02d}_acw_1.csv", ex_id - 1))
+                    exercise_files.append((f"{ex_id:02d}_act_2.csv", f"{ex_id:02d}_acw_2.csv", ex_id - 1))
+                else:
+                    exercise_files.append((f"{ex_id:02d}_act_1.csv", f"{ex_id:02d}_acw_1.csv", ex_id - 1))
+
+            for thigh_filename, wrist_filename, label in exercise_files:
+                wrist_file = subject_acw_dir / wrist_filename
+                thigh_file = subject_act_dir / thigh_filename
+
+                if not wrist_file.exists() or not thigh_file.exists():
+                    logger.debug(f"Subject {subject_id}, files {wrist_filename}/{thigh_filename} not found, skipping")
                     continue
 
-                # センサーデータ抽出（back_xyz + thigh_xyz）
-                sensor_data = df.iloc[:, 1:7].values.astype(np.float32)
-                # sensor_data: (num_samples, 6)
+                try:
+                    # 手首加速度データ読み込み（カンマ区切り、タイムスタンプ,x,y,z）
+                    wrist_df = pd.read_csv(wrist_file, header=None, names=['timestamp', 'x', 'y', 'z'])
+                    wrist_data = wrist_df[['x', 'y', 'z']].values.astype(np.float32)
 
-                # ラベル抽出とマッピング
-                original_labels = df.iloc[:, 7].values.astype(int)
-                labels = np.array([self.label_mapping[l] for l in original_labels], dtype=int)
+                    # 太もも加速度データ読み込み（カンマ区切り、タイムスタンプ,x,y,z）
+                    thigh_df = pd.read_csv(thigh_file, header=None, names=['timestamp', 'x', 'y', 'z'])
+                    thigh_data = thigh_df[['x', 'y', 'z']].values.astype(np.float32)
 
-                # person_idを1-indexedに変換（subject_id 501 -> person_id 1 -> USER00001）
-                person_id = idx + 1
-                result[person_id] = (sensor_data, labels)
-                logger.info(
-                    f"USER{person_id:05d} (subject {subject_id}): "
-                    f"{sensor_data.shape}, Labels: {labels.shape}"
-                )
+                    # サンプル数を揃える（短い方に合わせる）
+                    min_samples = min(len(wrist_data), len(thigh_data))
+                    wrist_data = wrist_data[:min_samples]
+                    thigh_data = thigh_data[:min_samples]
 
-            except Exception as e:
-                logger.error(f"Error loading {subject_file}: {e}")
+                    # ラベル生成
+                    exercise_labels = np.full(min_samples, label, dtype=int)
+
+                    all_wrist_data.append(wrist_data)
+                    all_thigh_data.append(thigh_data)
+                    all_labels.append(exercise_labels)
+
+                except Exception as e:
+                    logger.error(f"Error loading subject {subject_id}, file {filename}: {e}")
+                    continue
+
+            if not all_wrist_data:
+                logger.warning(f"No data loaded for subject {subject_id}")
                 continue
+
+            # 全エクササイズを結合
+            wrist_data = np.vstack(all_wrist_data)  # (total_samples, 3)
+            thigh_data = np.vstack(all_thigh_data)  # (total_samples, 3)
+            labels = np.concatenate(all_labels)      # (total_samples,)
+
+            # 手首と太ももを結合: (total_samples, 6)
+            sensor_data = np.hstack([wrist_data, thigh_data])
+
+            # person_idは1-indexed（USER00001から開始）
+            person_id = subject_id
+            result[person_id] = (sensor_data, labels)
+            logger.info(
+                f"USER{person_id:05d}: {sensor_data.shape}, Labels: {labels.shape}"
+            )
 
         if not result:
             raise ValueError("No data loaded. Please check the raw data directory structure.")
@@ -244,7 +276,7 @@ class Har70plusPreprocessor(BasePreprocessor):
             # 無効なサンプルを除去
             cleaned_data, cleaned_labels = filter_invalid_samples(person_data, labels)
 
-            # リサンプリング (50Hz -> 30Hz)
+            # リサンプリング (100Hz -> 30Hz)
             if self.original_sampling_rate != self.target_sampling_rate:
                 resampled_data, resampled_labels = resample_timeseries(
                     cleaned_data,
@@ -269,7 +301,7 @@ class Har70plusPreprocessor(BasePreprocessor):
 
         Returns:
             {person_id: {sensor/modality: {'X': data, 'Y': labels}}}
-            例: {'LowerBack/ACC': {'X': (N, 3, 150), 'Y': (N,)}}
+            例: {'Wrist/ACC': {'X': (N, 3, 150), 'Y': (N,)}}
         """
         processed = {}
 
@@ -292,11 +324,11 @@ class Har70plusPreprocessor(BasePreprocessor):
                     window_size=self.window_size,
                     stride=self.stride,
                     drop_last=False,
-                    pad_last=True  # HAR70+: 150に満たない場合はパディング
+                    pad_last=True  # MEx: 150に満たない場合はパディング
                 )
                 # windowed_data: (num_windows, window_size, sensor_channels)
 
-                # 各モダリティに分割（HAR70+はACCのみ）
+                # 各モダリティに分割（MExはACCのみ）
                 modalities = self.sensor_modalities[sensor_name]
                 for modality_name, (mod_start_ch, mod_end_ch) in modalities.items():
                     # モダリティのチャンネルを抽出
@@ -337,8 +369,8 @@ class Har70plusPreprocessor(BasePreprocessor):
             data: {person_id: {sensor_modality: {'X': data, 'Y': labels}}}
 
         保存形式:
-            data/processed/har70plus/USER00001/LowerBack/ACC/X.npy, Y.npy
-            data/processed/har70plus/USER00001/RightThigh/ACC/X.npy, Y.npy
+            data/processed/mex/USER00001/Wrist/ACC/X.npy, Y.npy
+            data/processed/mex/USER00001/Thigh/ACC/X.npy, Y.npy
             ...
         """
         import json

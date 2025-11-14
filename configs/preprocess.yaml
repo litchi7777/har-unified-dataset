@@ -187,9 +187,130 @@ datasets:
   realworld:
     raw_data_path: data/raw
     processed_data_path: data/processed
-    target_sampling_rate: 60
+    target_sampling_rate: 30
     window_size: 60
     stride: 12
+  # LARa (Logistic Activity Recognition) Dataset
+  lara:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は100Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 8     # 物流倉庫作業活動
+    num_subjects: 8       # S07-S14
+    num_sensors: 5        # LeftArm, LeftLeg, Neck, RightArm, RightLeg
+    num_channels: 30      # 5センサー × (3軸ACC + 3軸GYRO)
+    original_sampling_rate: 100  # Hz (元データ)
+    # sampling_rateは30Hzにリサンプリングされる
+
+  # REALDISP (REAListic sensor DISPlacement) Activity Recognition Dataset
+  realdisp:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (推定50Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 33    # 33種類のフィットネス・日常活動
+    num_subjects: 17      # 17人の被験者
+    num_sensors: 9        # 全身9箇所（両手足、背中）
+    num_channels: 117     # 9センサー × 13チャンネル (ACC:3 + GYRO:3 + MAG:3 + QUAT:4)
+    original_sampling_rate: 50  # Hz (データから推定)
+    # sampling_rateは30Hzにリサンプリングされる
+
+  # PAMAP2 (Physical Activity Monitoring) Dataset
+  pamap2:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は100Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 12    # lying, sitting, standing, walking, running, cycling, Nordic walking, stairs, vacuum cleaning, ironing, rope jumping
+    num_subjects: 9       # 被験者ID: 101-109
+    num_sensors: 3        # hand, chest, ankle (IMU sensors)
+    num_channels: 27      # 3センサー × 9チャンネル (ACC:3 + GYRO:3 + MAG:3 per sensor)
+    original_sampling_rate: 100  # Hz (元データ)
+    # sampling_rateは30Hzにリサンプリングされる
+
+  # MEx (Multi-modal Exercise) Dataset
+  mex:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は100Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 7     # 7種類の理学療法エクササイズ (Knee-rolling, Bridging, Pelvic tilt, The Clam, Repeated Extension in Lying, Prone punches, Superman)
+    num_subjects: 30      # 30人の被験者
+    num_sensors: 2        # Wrist, Thigh
+    num_channels: 6       # 2センサー × 3軸加速度
+    original_sampling_rate: 100  # Hz (元データ)
+    # sampling_rateは30Hzにリサンプリングされる
+
+  # OPPORTUNITY (OPPORTUNITY Activity Recognition) Dataset
+  opportunity:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元データも30Hz、リサンプリング不要)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # 処理するシナリオ（複数指定可能）
+    scenarios: ['ideal']  # ideal, self, mutual から選択
+
+    # データセット情報（参考用）
+    num_activities: 17    # Mid-level gestures (Open/Close doors, drawers, etc.)
+    num_subjects: 4       # S1-S4
+    num_sensors: 8        # 7 IMUs (BACK, RUA, RLA, LUA, LLA, L_SHOE, R_SHOE) + ACC_SENSORS group
+    num_channels: 113     # 全body-wornセンサー（IMU 7×13ch + 加速度センサー 22ch）
+    original_sampling_rate: 30  # Hz (元データ)
+    # リサンプリング不要
+
+  wisdm:
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+    target_sampling_rate: 30
+    window_size: 150
+    stride: 30
+
+    # データセット情報（参考用）
+    num_activities: 18
+    num_subjects: 51
+    num_channels: 12
+    original_sampling_rate: 20
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR

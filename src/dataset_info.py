@@ -29,14 +29,21 @@ DATASETS = {
             17: 'Jumping', 18: 'PlayingBasketball'
         },
     },
-    "PAMAP2": {
-        "sensor_list": ["hand", "chest", "ankle"],
-        "n_classes": 12,
+    "WISDM": {
+        "sensor_list": ["Phone", "Watch"],
+        "modalities": ["ACC", "GYRO"],
+        "n_classes": 18,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 20,  # Hz
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
+        "has_undefined_class": False,
         "labels": {
-            0: 'lying', 1: 'sitting', 2: 'standing', 3: 'walking',
-            4: 'running', 5: 'cycling', 6: 'Nordic walking',
-            7: 'descending stairs', 8: 'vacuum clearning',
-            9: 'house clearning', 10: 'playing soccer', 11: 'rope jumping'
+            0: "Walking", 1: "Jogging", 2: "Stairs",
+            3: "Sitting", 4: "Standing", 5: "Typing",
+            6: "BrushingTeeth", 7: "EatingSoup", 8: "EatingChips",
+            9: "EatingPasta", 10: "Drinking", 11: "EatingSandwich",
+            12: "Kicking", 13: "Catching", 14: "Dribbling",
+            15: "Writing", 16: "Clapping", 17: "FoldingClothes"
         },
     },
     "REALWORLD": {
@@ -56,6 +63,34 @@ DATASETS = {
             5: 'Sitting',
             6: 'Standing',
             7: 'Walking'
+        },
+    },
+    "PAMAP2": {
+        "sensor_list": ["hand", "chest", "ankle"],
+        "modalities": {
+            "hand": ["ACC", "GYRO", "MAG"],
+            "chest": ["ACC", "GYRO", "MAG"],
+            "ankle": ["ACC", "GYRO", "MAG"]
+        },
+        "n_classes": 12,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 100,  # Hz
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
+        "has_undefined_class": True,  # ラベル0（transient activities）を-1に変換
+        "labels": {
+            -1: 'other',  # transient activities (original label 0)
+            0: 'lying',   # original label 1
+            1: 'sitting',  # original label 2
+            2: 'standing',  # original label 3
+            3: 'walking',  # original label 4
+            4: 'running',  # original label 5
+            5: 'cycling',  # original label 6
+            6: 'Nordic walking',  # original label 7
+            7: 'ascending stairs',  # original label 12
+            8: 'descending stairs',  # original label 13
+            9: 'vacuum cleaning',  # original label 16
+            10: 'ironing',  # original label 17
+            11: 'rope jumping'  # original label 24
         },
     },
     "MHEALTH": {
@@ -86,15 +121,15 @@ DATASETS = {
             "atr03": ["ACC", "GYRO", "QUAT"],
             "atr04": ["ACC", "GYRO", "QUAT"]
         },
-        "n_classes": 10,
+        "n_classes": 10,  # 9クラス + Undefined(-1)
         "sampling_rate": 30,  # Hz
         "original_sampling_rate": 30,  # Hz (リサンプリング不要)
         "has_undefined_class": True,  # ラベル-1が存在
         "labels": {
-            -1: 'Undefined',  # 未定義/無操作
+            -1: 'Undefined',  # 未定義/無操作/その他（operation=0,10）
             0: 'Assemble', 1: 'Insert', 2: 'Put', 3: 'Walk',
             4: 'Pick', 5: 'Scan', 6: 'Press', 7: 'Open',
-            8: 'Close', 9: 'Other'
+            8: 'Close'
         },
     },
     "FORTHTRACE": {
@@ -153,6 +188,201 @@ DATASETS = {
             9: 'Cycling Standing',          # label=14 -> 9
             10: 'Cycling Seated Inactive',  # label=130 -> 10
             11: 'Cycling Standing Inactive' # label=140 -> 11 (not in sample, but in spec)
+        },
+    },
+    "LARA": {
+        "sensor_list": ["LeftArm", "LeftLeg", "Neck", "RightArm", "RightLeg"],
+        "modalities": ["ACC", "GYRO"],  # 加速度センサー（3軸） + ジャイロスコープ（3軸）
+        "n_classes": 8,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 100,  # Hz
+        "scale_factor": None,  # 既にG単位なので変換不要
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Stationary',
+            1: 'GaitCycle',
+            2: 'Step',
+            3: 'Upwards',
+            4: 'Centred',
+            5: 'Downwards',
+            6: 'TorsoRotation',
+            7: 'OtherMotion'
+        },
+    },
+    "REALDISP": {
+        "sensor_list": ["LeftCalf", "LeftThigh", "RightCalf", "RightThigh", "Back",
+                       "LeftLowerArm", "LeftUpperArm", "RightLowerArm", "RightUpperArm"],
+        "modalities": ["ACC", "GYRO", "MAG", "QUAT"],  # 全センサー共通
+        "n_classes": 33,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 50,  # Hz (推定値)
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Walking', 1: 'Jogging', 2: 'Running', 3: 'Jump up',
+            4: 'Jump front & back', 5: 'Jump sideways', 6: 'Jump leg/arms open/closed',
+            7: 'Jump rope', 8: 'Trunk twist (arms outstretched)', 9: 'Trunk twist (elbows bent)',
+            10: 'Waist bends forward', 11: 'Waist rotation',
+            12: 'Waist bends (reach foot with opposite hand)', 13: 'Reach heels backwards',
+            14: 'Lateral bend (left+right)', 15: 'Lateral bend with arm up (left+right)',
+            16: 'Repetitive forward stretching', 17: 'Upper trunk and lower body opposite twist',
+            18: 'Lateral elevation of arms', 19: 'Frontal elevation of arms',
+            20: 'Frontal hand claps', 21: 'Frontal crossing of arms',
+            22: 'Shoulders high-amplitude rotation', 23: 'Shoulders low-amplitude rotation',
+            24: 'Arms inner rotation', 25: 'Knees (alternating) to the breast',
+            26: 'Heels (alternating) to the backside', 27: 'Knees bending (crouching)',
+            28: 'Knees (alternating) bending forward', 29: 'Rotation on the knees',
+            30: 'Rowing', 31: 'Elliptical bike', 32: 'Cycling'
+        },
+    },
+    "MEX": {
+        "sensor_list": ["Wrist", "Thigh"],
+        "modalities": ["ACC"],  # 加速度センサーのみ（3軸）
+        "n_classes": 7,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 100,  # Hz
+        "scale_factor": None,  # 既にG単位（±8g）なので変換不要
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Knee-rolling',
+            1: 'Bridging',
+            2: 'Pelvic tilt',
+            3: 'The Clam',
+            4: 'Repeated Extension in Lying',
+            5: 'Prone punches',
+            6: 'Superman'
+        },
+    },
+    "OPPORTUNITY": {
+        "sensor_list": ["BACK", "RUA", "RLA", "LUA", "LLA", "L_SHOE", "R_SHOE", "ACC_SENSORS"],  # 全Body-wornセンサー（113ch）
+        "modalities": {
+            "BACK": ["ACC", "GYRO", "MAG"],
+            "RUA": ["ACC", "GYRO", "MAG"],
+            "RLA": ["ACC", "GYRO", "MAG"],
+            "LUA": ["ACC", "GYRO", "MAG"],
+            "LLA": ["ACC", "GYRO", "MAG"],
+            "L_SHOE": ["ACC", "GYRO", "MAG"],
+            "R_SHOE": ["ACC", "GYRO", "MAG"],
+            "ACC_SENSORS": ["ACC"],  # 残り12個の加速度センサー
+        },
+        "n_classes": 17,  # Mid-level gesturesの有効クラス数
+        "sampling_rate": 30,  # Hz（既に30Hzなのでリサンプリング不要）
+        "original_sampling_rate": 30,  # Hz
+        "scale_factor": 9.8,  # m/s² -> G に変換（加速度のみ）
+        "has_undefined_class": True,  # ラベル-1（Null class）が存在
+        "labels": {
+            -1: 'Null',  # 未定義/無操作
+            0: 'Open Door 1',
+            1: 'Open Door 2',
+            2: 'Close Door 1',
+            3: 'Close Door 2',
+            4: 'Open Fridge',
+            5: 'Close Fridge',
+            6: 'Open Dishwasher',
+            7: 'Close Dishwasher',
+            8: 'Open Drawer 1',
+            9: 'Close Drawer 1',
+            10: 'Open Drawer 2',
+            11: 'Close Drawer 2',
+            12: 'Open Drawer 3',
+            13: 'Close Drawer 3',
+            14: 'Clean Table',
+            15: 'Drink from Cup',
+            16: 'Toggle Switch'
+        },
+    },
+    "USCHAD": {
+        "sensor_list": ["Hip"],
+        "modalities": ["ACC", "GYRO"],  # 加速度センサー（3軸） + ジャイロスコープ（3軸）
+        "n_classes": 12,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 100,  # Hz
+        "scale_factor": None,  # 既にG単位なので変換不要
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Walking Forward',
+            1: 'Walking Left',
+            2: 'Walking Right',
+            3: 'Walking Upstairs',
+            4: 'Walking Downstairs',
+            5: 'Running Forward',
+            6: 'Jumping Up',
+            7: 'Sitting',
+            8: 'Standing',
+            9: 'Sleeping',
+            10: 'Elevator Up',
+            11: 'Elevator Down'
+        },
+    },
+    "SELFBACK": {
+        "sensor_list": ["Wrist", "Thigh"],
+        "modalities": ["ACC"],  # 加速度センサーのみ（3軸）
+        "n_classes": 9,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 100,  # Hz
+        "scale_factor": None,  # 既にG単位（±8g）なので変換不要
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Walking Downstairs',
+            1: 'Walking Upstairs',
+            2: 'Walking Slow',
+            3: 'Walking Moderate',
+            4: 'Walking Fast',
+            5: 'Jogging',
+            6: 'Sitting',
+            7: 'Standing',
+            8: 'Lying'
+        },
+    },
+    "PAAL": {
+        "sensor_list": ["Wrist"],
+        "modalities": ["ACC"],  # 加速度センサーのみ（3軸）
+        "n_classes": 24,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 32,  # Hz
+        "scale_factor": 0.015,  # 整数値からG単位への変換（8ビット分解能: ±2g）
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Blow Nose',
+            1: 'Brush Hair',
+            2: 'Brush Teeth',
+            3: 'Drink Water',
+            4: 'Dusting',
+            5: 'Eat Meal',
+            6: 'Ironing',
+            7: 'Open Bottle',
+            8: 'Open Box',
+            9: 'Phone Call',
+            10: 'Put On Jacket',
+            11: 'Put On Shoe',
+            12: 'Put On Glasses',
+            13: 'Salute',
+            14: 'Sit Down',
+            15: 'Sneeze/Cough',
+            16: 'Stand Up',
+            17: 'Take Off Jacket',
+            18: 'Take Off Shoe',
+            19: 'Take Off Glasses',
+            20: 'Type On Keyboard',
+            21: 'Washing Dishes',
+            22: 'Washing Hands',
+            23: 'Writing'
+        },
+    },
+    "TMD": {
+        "sensor_list": ["Smartphone"],  # 単一スマートフォンセンサー
+        "modalities": ["ACC", "GYRO"],  # 加速度とジャイロスコープ
+        "n_classes": 5,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": None,  # 可変サンプリングレート（イベントドリブン）
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（Androidセンサーはm/s^2単位）
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Walking',
+            1: 'Car',
+            2: 'Still',
+            3: 'Train',
+            4: 'Bus'
         },
     },
 }
