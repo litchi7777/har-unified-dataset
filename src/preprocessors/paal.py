@@ -415,9 +415,9 @@ class PAALPreprocessor(BasePreprocessor):
             subject_dir = save_dir / f"USER{subject_id:05d}" / "Wrist" / "ACC"
             subject_dir.mkdir(parents=True, exist_ok=True)
 
-            # X.npy: 3チャンネル全てのセンサーデータ (N, 3, T) → (N, T, 3) → float16
-            # 他のデータセットと形式を合わせるため、(N, T, 3)の形で保存
-            X_data = np.transpose(subject_features, (0, 2, 1)).astype(np.float16)  # (N, T, 3)
+            # X.npy: 3チャンネル全てのセンサーデータ (N, 3, T) → float16
+            # 他のデータセットと形式を合わせるため、(N, 3, T)の形で保存
+            X_data = subject_features.astype(np.float16)  # (N, 3, T) - transposeしない
             np.save(subject_dir / "X.npy", X_data)
 
             # Y.npy: ラベル (N,)
@@ -432,7 +432,7 @@ class PAALPreprocessor(BasePreprocessor):
             users_dict[user_id_str] = {
                 "sensor_modalities": {
                     "Wrist/ACC": {
-                        "X_shape": [len(subject_labels), self.window_size, 3],
+                        "X_shape": [len(subject_labels), 3, self.window_size],  # (N, 3, T)に修正
                         "Y_shape": [len(subject_labels)],
                         "num_windows": len(subject_labels),
                         "unique_labels": sorted([int(l) for l in np.unique(subject_labels)])

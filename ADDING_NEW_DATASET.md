@@ -1104,3 +1104,151 @@ AIが実装する際は、以下の情報を明示的に報告してください
    - 既知の制限事項や注意点
 
 これにより、人間が実装をレビューしやすくなり、問題の早期発見が可能になります。
+
+---
+
+## 特殊なケース：イベントドリブンセンサー・可変カラムCSV
+
+### ケース: TMDデータセット型（スマートフォンセンサー）
+
+スマートフォンのセンサーデータは以下の特徴があります：
+
+#### 特徴
+1. **イベントドリブンサンプリング**: 固定レートではなく、値が変化したときにデータが記録される
+2. **可変カラム数**: センサータイプごとに異なるカラム数
+   - accelerometer: 5列（timestamp, sensor_type, x, y, z）
+   - gyroscope: 5列（timestamp, sensor_type, x, y, z）
+   - magnetic_field_uncalibrated: 8列（timestamp, sensor_type, x, y, z, bias_x, bias_y, bias_z）
+   - rotation_vector: 7列（timestamp, sensor_type, x, y, z, w, accuracy）
+3. **複数センサー混在**: 1つのCSVファイルに複数種類のセンサーデータが含まれる
+
+#### 実装上の課題
+
+**❌ 問題: pandasのread_csvは固定カラム数を期待する**
+
+```python
+# これは失敗する（カラム数が行ごとに異なる）
+df = pd.read_csv(csv_file, header=None, names=['timestamp', 'sensor_type', 'x', 'y', 'z'])
+# Error: Expected 5 fields, saw 8
+```
+
+**✅ 解決策1: 手動パース**
+
+```python
+def _parse_csv_manual(self, csv_file: Path) -> np.ndarray:
+    """
+    可変カラム数のCSVを手動でパース
+    """
+    acc_data = []
+    gyro_data = []
+
+    with open(csv_file, 'r') as f:
+        for line in f:
+            parts = line.strip().split(',')
+            if len(parts) >= 4:
+                try:
+                    timestamp = float(parts[0])
+                    sensor_type = parts[1]
+                    x = float(parts[2])
+                    y = float(parts[3])
+                    z = float(parts[4]) if len(parts) > 4 else 0.0
+
+                    if sensor_type == 'android.sensor.accelerometer':
+                        acc_data.append([timestamp, x, y, z])
+                    elif sensor_type == 'android.sensor.gyroscope':
+                        gyro_data.append([timestamp, x, y, z])
+                except ValueError:
+                    continue
+
+    # ... 以降、acc_dataとgyro_dataを処理
+```
+
+**✅ 解決策2: pandasのエンジン設定**
+
+```python
+# 'python'エンジンは可変カラムに対応（低速）
+df = pd.read_csv(csv_file, header=None, engine='python', on_bad_lines='skip')
+```
+
+#### タイムスタンプ統合
+
+イベントドリブンデータは、センサーごとにタイムスタンプが異なるため、統合が必要です：
+
+```python
+def _align_sensor_data(self, acc_df: pd.DataFrame, gyro_df: pd.DataFrame) -> np.ndarray:
+    """
+    加速度とジャイロのタイムスタンプを揃えてデータを統合
+    """
+    # 共通のタイムスタンプ範囲を取得
+    min_time = max(acc_df['timestamp'].min(), gyro_df['timestamp'].min())
+    max_time = min(acc_df['timestamp'].max(), gyro_df['timestamp'].max())
+
+    # 固定サンプリングレート（推定）で等間隔のタイムスタンプを生成
+    estimated_rate = 50  # Hz（データから推定）
+    num_samples = int((max_time - min_time) / 1000.0 * estimated_rate)
+    resampled_times = np.linspace(min_time, max_time, num_samples)
+
+    # 線形補間で各センサーのデータをリサンプリング
+    acc_resampled = np.zeros((num_samples, 3))
+    gyro_resampled = np.zeros((num_samples, 3))
+
+    for i, col in enumerate(['x', 'y', 'z']):
+        acc_resampled[:, i] = np.interp(
+            resampled_times,
+            acc_df['timestamp'].values,
+            acc_df[col].values
+        )
+        gyro_resampled[:, i] = np.interp(
+            resampled_times,
+            gyro_df['timestamp'].values,
+            gyro_df[col].values
+        )
+
+    # ACC + GYROを結合
+    combined = np.hstack([acc_resampled, gyro_resampled])
+    return combined
+```
+
+#### サンプリングレート推定
+
+イベントドリブンデータの場合、`original_sampling_rate`は推定値です：
+
+```python
+# dataset_info.py
+"original_sampling_rate": None,  # 可変サンプリングレート（イベントドリブン）
+
+# preprocessor内で推定値を使用
+estimated_rate = 50  # Hz（データから推定、または論文から）
+```
+
+#### ラベル抽出（ファイル名から）
+
+TMDでは、ファイル名にラベル情報が含まれます：
+
+```python
+# ファイル名: sensorfile_U1_Walking_1480512323378.csv
+# → Activity: Walking
+
+filename_parts = csv_file.stem.split('_')
+if len(filename_parts) >= 3:
+    activity_name = filename_parts[2]  # "Walking"
+    label = self.activity_map[activity_name]  # 0
+```
+
+#### チェックリスト（イベントドリブンセンサー用）
+
+- [ ] 可変カラム数に対応したCSVパース実装
+- [ ] センサータイプのフィルタリング（必要なセンサーのみ抽出）
+- [ ] タイムスタンプ統合処理の実装
+- [ ] 線形補間によるリサンプリング
+- [ ] サンプリングレート推定値の記録
+- [ ] ファイル名からのラベル抽出（該当する場合）
+
+#### 参考実装
+
+- **TMDデータセット**: `src/preprocessors/tmd.py`
+  - 可変カラムCSVの手動パース
+  - マルチセンサー統合
+  - イベントドリブン → 固定レート変換
+
+---

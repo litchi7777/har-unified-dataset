@@ -147,6 +147,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .tmd import TMDPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',

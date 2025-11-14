@@ -197,7 +197,7 @@ DATASETS = {
         "n_classes": 33,
         "sampling_rate": 30,  # Hz (リサンプリング後)
         "original_sampling_rate": 50,  # Hz (推定値)
-        "scale_factor": None,  # 単位要確認（おそらくG単位）
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
         "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
         "labels": {
             0: 'Walking', 1: 'Jogging', 2: 'Running', 3: 'Jump up',
@@ -348,6 +348,22 @@ DATASETS = {
             21: 'Washing Dishes',
             22: 'Washing Hands',
             23: 'Writing'
+        },
+    },
+    "TMD": {
+        "sensor_list": ["Smartphone"],  # 単一スマートフォンセンサー
+        "modalities": ["ACC", "GYRO"],  # 加速度とジャイロスコープ
+        "n_classes": 5,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": None,  # 可変サンプリングレート（イベントドリブン）
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（Androidセンサーはm/s^2単位）
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Walking',
+            1: 'Car',
+            2: 'Still',
+            3: 'Train',
+            4: 'Bus'
         },
     },
 }
