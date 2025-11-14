@@ -205,14 +205,19 @@ class TMDPreprocessor(BasePreprocessor):
         acc_df = pd.DataFrame(acc_data, columns=['timestamp', 'x', 'y', 'z'])
         gyro_df = pd.DataFrame(gyro_data, columns=['timestamp', 'x', 'y', 'z'])
 
+        # タイムスタンプでソートして重複を除去
+        # スプライン補間には厳密に単調増加する系列が必要
+        acc_df = acc_df.sort_values('timestamp').drop_duplicates(subset='timestamp', keep='first').reset_index(drop=True)
+        gyro_df = gyro_df.sort_values('timestamp').drop_duplicates(subset='timestamp', keep='first').reset_index(drop=True)
+
         return self._align_sensor_data(acc_df, gyro_df)
 
     def _align_sensor_data(self, acc_df: pd.DataFrame, gyro_df: pd.DataFrame) -> np.ndarray:
         """
         加速度とジャイロのタイムスタンプを揃えてデータを統合
 
-        イベントドリブンデータを高密度補間→ポリフェーズフィルタリングで30Hzにリサンプリング。
-        情報損失を最小限に抑えます。
+        論文記載: TMDは20Hzで測定されたデータ（実際はイベントドリブンで疎）
+        高密度スプライン補間（1ms）+ ローパスフィルタ + ダウンサンプリングで滑らかな30Hz信号を生成
 
         Args:
             acc_df: 加速度データ（timestamp, x, y, z）
@@ -221,7 +226,7 @@ class TMDPreprocessor(BasePreprocessor):
         Returns:
             (num_samples, 6) の配列（ACC 3ch + GYRO 3ch）
         """
-        from scipy import signal
+        from scipy import signal, interpolate
 
         # 共通のタイムスタンプ範囲を取得
         min_time = max(acc_df['timestamp'].min(), gyro_df['timestamp'].min())
@@ -232,8 +237,8 @@ class TMDPreprocessor(BasePreprocessor):
         if duration <= 0:
             return None
 
-        # ステップ1: 高密度補間（1ms = 1000Hz）でイベントドリブン→等間隔
-        # これにより元データの情報を最大限保持
+        # ステップ1: 高密度スプライン補間（1ms = 1000Hz）
+        # スプライン補間は高密度でやった方が滑らか
         high_rate = 1000  # Hz (1ms間隔)
         num_high_samples = int(duration * high_rate)
 
@@ -242,27 +247,53 @@ class TMDPreprocessor(BasePreprocessor):
 
         high_res_times = np.linspace(min_time, max_time, num_high_samples)
 
-        # 線形補間で高密度化
+        # 3次スプライン補間で高密度化（線形補間より滑らか）
         acc_high = np.zeros((num_high_samples, 3))
         gyro_high = np.zeros((num_high_samples, 3))
 
         for i, col in enumerate(['x', 'y', 'z']):
-            acc_high[:, i] = np.interp(
-                high_res_times,
-                acc_df['timestamp'].values,
-                acc_df[col].values
-            )
-            gyro_high[:, i] = np.interp(
-                high_res_times,
-                gyro_df['timestamp'].values,
-                gyro_df[col].values
-            )
+            # 加速度計: 3次スプライン補間（k=3で滑らか）
+            # データ点が少ない場合は次数を下げる
+            k_acc = min(3, len(acc_df) - 1)
+            if k_acc >= 1:
+                spline_acc = interpolate.make_interp_spline(
+                    acc_df['timestamp'].values,
+                    acc_df[col].values,
+                    k=k_acc
+                )
+                acc_high[:, i] = spline_acc(high_res_times)
+            else:
+                # データ点が1つ以下の場合は定数値で埋める
+                acc_high[:, i] = acc_df[col].values[0] if len(acc_df) > 0 else 0.0
 
-        # ステップ2: ポリフェーズフィルタリングで1000Hz→30Hzにダウンサンプリング
-        # アンチエイリアスフィルタが自動的に適用される
+            # ジャイロ: 3次スプライン補間
+            k_gyro = min(3, len(gyro_df) - 1)
+            if k_gyro >= 1:
+                spline_gyro = interpolate.make_interp_spline(
+                    gyro_df['timestamp'].values,
+                    gyro_df[col].values,
+                    k=k_gyro
+                )
+                gyro_high[:, i] = spline_gyro(high_res_times)
+            else:
+                gyro_high[:, i] = gyro_df[col].values[0] if len(gyro_df) > 0 else 0.0
+
+        # ステップ2: ローパスフィルタを適用（高周波ノイズ除去、さらに滑らかに）
+        # カットオフ周波数: 10Hz（論文記載の20Hzより低く設定）
+        nyquist = high_rate / 2.0
+        cutoff = 10.0  # Hz
+        normalized_cutoff = cutoff / nyquist
+
+        # バターワースフィルタ（4次）
+        b, a = signal.butter(4, normalized_cutoff, btype='low')
+
+        for i in range(3):
+            acc_high[:, i] = signal.filtfilt(b, a, acc_high[:, i])
+            gyro_high[:, i] = signal.filtfilt(b, a, gyro_high[:, i])
+
+        # ステップ3: 1000Hz → 30Hz にダウンサンプリング（ポリフェーズフィルタ）
         target_rate = self.target_sampling_rate  # 30 Hz
 
-        # リサンプリング比率を計算
         from math import gcd
         up = target_rate
         down = high_rate
