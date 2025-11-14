@@ -292,6 +292,19 @@ datasets:
     original_sampling_rate: 30  # Hz (元データ)
     # リサンプリング不要
 
+  wisdm:
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+    target_sampling_rate: 30
+    window_size: 150
+    stride: 30
+
+    # データセット情報（参考用）
+    num_activities: 18
+    num_subjects: 51
+    num_channels: 12
+    original_sampling_rate: 20
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR

@@ -143,6 +143,11 @@ except ImportError:
     pass
 
 try:
+    from .wisdm import WISDMPreprocessor
+except ImportError:
+    pass
+
+try:
     from .tmd import TMDPreprocessor
 except ImportError:
     pass
