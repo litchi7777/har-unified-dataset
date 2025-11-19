@@ -428,6 +428,29 @@ datasets:
     # sampling_rateは30Hzにリサンプリングされる
     # 注: Thighセンサーは30%欠損値のため除外
 
+  # MotionSense Dataset
+  motionsense:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は50Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 6     # Downstairs, Upstairs, Walking, Jogging, Standing, Sitting
+    num_subjects: 24      # 多様な年齢・性別・体重・身長
+    num_sensors: 1        # Pocket (iPhone 6s in front pocket)
+    num_channels: 12      # ATT(3) + GRA(3) + ROT(3) + ACC(3)
+    original_sampling_rate: 50  # Hz
+    # sampling_rateは30Hzにリサンプリングされる
+    # センサー: DeviceMotion (attitude + gravity + rotationRate + userAcceleration)
+    # 注: GitHubから手動ダウンロードが必要
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR

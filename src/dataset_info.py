@@ -485,6 +485,26 @@ DATASETS = {
         },
         "notes": "IM-SportingBehaviors dataset. 20 subjects, 6 sports. Thigh sensor excluded due to 30% missing values."
     },
+    "MOTIONSENSE": {
+        "sensor_list": ["Pocket"],  # iPhone 6s in front pocket
+        "modalities": {
+            "Pocket": ["ATT", "GRA", "ROT", "ACC"]  # attitude, gravity, rotationRate, userAcceleration
+        },
+        "n_classes": 6,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 50,  # Hz
+        "scale_factor": None,  # 既にG単位（userAcceleration）
+        "has_undefined_class": False,  # 全サンプルが有効なクラス
+        "labels": {
+            0: 'Downstairs',
+            1: 'Upstairs',
+            2: 'Walking',
+            3: 'Jogging',
+            4: 'Standing',
+            5: 'Sitting'
+        },
+        "notes": "MotionSense dataset. 24 subjects, iPhone 6s DeviceMotion data (attitude+gravity+rotation+userAcceleration)."
+    },
 }
 
 

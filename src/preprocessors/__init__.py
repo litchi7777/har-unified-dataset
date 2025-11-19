@@ -182,6 +182,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .motionsense import MotionSensePreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',
