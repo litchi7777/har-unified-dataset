@@ -32,7 +32,7 @@ Human Activity Recognition (HAR) データセットの統合前処理・可視�
 | **WARD** | 20 | LeftArm, RightArm, Waist, LeftAnkle, RightAnkle (5箇所) | IMU (ACC, GYRO) | 13 | 20Hz → 30Hz | ウェアラブル動作認識、12ビットデジタル値 |
 | **CAPTURE24** | 151 | Wrist (1箇所) | Axivity AX3 (ACC) | 動的 | 100Hz → 30Hz | 大規模日常生活データ、200+活動ラベル |
 | **IMSB** | 20 | Wrist, Neck (2箇所) | ACC | 6 | 20Hz → 30Hz | スポーツ活動認識（バドミントン、バスケ等） |
-| **MotionSense** | 24 | Pocket (1箇所) | iPhone DeviceMotion (ATT, GRA, ROT, ACC) | 6 | 50Hz → 30Hz | スマートフォン内蔵センサー、姿勢情報含む |
+| **MotionSense** | 24 | Pocket (1箇所) | iPhone (ACC, GYRO) | 6 | 50Hz → 30Hz | スマートフォン内蔵センサー、生の加速度データ |
 | **IMWSHA** | 10 | Wrist, Chest, Thigh (3箇所) | IMU (ACC, GYRO, MAG) | 11 | 50Hz → 30Hz | スマートホーム活動（掃除、料理、PC使用等） |
 | **SBRHAPT** | 30 | Waist (1箇所) | IMU (ACC, GYRO) | 12 | 50Hz → 30Hz | 基本活動+姿勢遷移（座る→立つ等） |
 
@@ -195,7 +195,7 @@ data/processed/forthtrace/
 | WARD | 1024.0 (12bit→G) | 20Hz | 30Hz | 150 (5秒) | 12ビットデジタル値、5箇所センサー |
 | CAPTURE24 | なし（G単位） | 100Hz | 30Hz | 150 (5秒) | 大規模、動的ラベル（Walmsley2020等） |
 | IMSB | 9.8 (m/s²→G) | 20Hz | 30Hz | 150 (5秒) | スポーツ活動、Thighセンサー欠損多数 |
-| MotionSense | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | iPhone DeviceMotion API、4種のモダリティ |
+| MotionSense | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | iPhone生加速度+ジャイロ、2モダリティ |
 | IMWSHA | 9.8 (m/s²→G) | 50Hz | 30Hz | 150 (5秒) | スマートホーム活動、MPU-9250 IMU |
 | SBRHAPT | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 基本活動+姿勢遷移、Galaxy S II使用 |
 

@@ -6,7 +6,8 @@ MotionSense データセット:
 - 24名の被験者（性別・年齢・体重・身長の多様性）
 - iPhone 6s（前ポケット装着）
 - サンプリングレート: 50Hz
-- DeviceMotion: attitude(3) + gravity(3) + rotationRate(3) + userAcceleration(3) = 12チャンネル
+- Accelerometer: x, y, z (3チャンネル、生の加速度）
+- Gyroscope: x, y, z (3チャンネル）
 - 参照: https://github.com/mmalekzadeh/motion-sense
 """
 
@@ -77,21 +78,15 @@ class MotionSensePreprocessor(BasePreprocessor):
         # センサー名（位置: Pocket）
         self.sensor_names = ['Pocket']
 
-        # DeviceMotionデータのカラム（12チャンネル）
-        self.device_motion_columns = [
-            'attitude.roll', 'attitude.pitch', 'attitude.yaw',      # ATT (3)
-            'gravity.x', 'gravity.y', 'gravity.z',                  # GRA (3)
-            'rotationRate.x', 'rotationRate.y', 'rotationRate.z',  # ROT (3)
-            'userAcceleration.x', 'userAcceleration.y', 'userAcceleration.z'  # ACC (3)
-        ]
+        # Accelerometer と Gyroscope のカラム名
+        self.acc_columns = ['x', 'y', 'z']
+        self.gyro_columns = ['x', 'y', 'z']
 
         # モダリティ（各センサー内のチャンネル分割）
         self.sensor_modalities = {
             'Pocket': {
-                'ATT': (0, 3),   # attitude: roll, pitch, yaw
-                'GRA': (3, 6),   # gravity: x, y, z
-                'ROT': (6, 9),   # rotationRate: x, y, z
-                'ACC': (9, 12),  # userAcceleration: x, y, z
+                'ACC': (0, 3),   # accelerometer: x, y, z
+                'GYRO': (3, 6),  # gyroscope: x, y, z
             }
         }
 
@@ -112,19 +107,22 @@ class MotionSensePreprocessor(BasePreprocessor):
     def download_dataset(self) -> None:
         """
         MotionSenseデータセットをダウンロードして解凍
+        Accelerometer_data と Gyroscope_data を取得
         """
         import zipfile
         import tempfile
         import shutil
 
         ms_dir = self.raw_data_path / 'motionsense'
-        target_dir = ms_dir / 'A_DeviceMotion_data'
+        acc_dir = ms_dir / 'B_Accelerometer_data'
+        gyro_dir = ms_dir / 'C_Gyroscope_data'
 
         # 既にダウンロード済みかチェック
-        if target_dir.exists():
-            csv_files = list(target_dir.glob('*/*.csv'))
-            if len(csv_files) >= 100:  # 最低100ファイル以上
-                logger.info(f"MotionSense data already exists at {target_dir}")
+        if acc_dir.exists() and gyro_dir.exists():
+            acc_files = list(acc_dir.glob('*/*.csv'))
+            gyro_files = list(gyro_dir.glob('*/*.csv'))
+            if len(acc_files) >= 100 and len(gyro_files) >= 100:
+                logger.info(f"MotionSense data already exists at {ms_dir}")
                 return
 
         ms_dir.mkdir(parents=True, exist_ok=True)
@@ -147,31 +145,48 @@ class MotionSensePreprocessor(BasePreprocessor):
             if result.returncode != 0:
                 raise RuntimeError(f"Failed to clone repository: {result.stderr}")
 
-            # ZIPファイルを解凍
-            zip_path = tmpdir / 'motion-sense' / 'data' / 'A_DeviceMotion_data.zip'
+            # Accelerometer ZIPファイルを解凍
+            acc_zip = tmpdir / 'motion-sense' / 'data' / 'B_Accelerometer_data.zip'
+            if not acc_zip.exists():
+                raise FileNotFoundError(f"Accelerometer ZIP not found: {acc_zip}")
 
-            if not zip_path.exists():
-                raise FileNotFoundError(f"ZIP file not found: {zip_path}")
-
-            logger.info(f"Extracting {zip_path.name}...")
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            logger.info(f"Extracting {acc_zip.name}...")
+            with zipfile.ZipFile(acc_zip, 'r') as zip_ref:
                 zip_ref.extractall(tmpdir / 'motion-sense' / 'data')
 
-            # A_DeviceMotion_dataフォルダを移動
-            extracted_dir = tmpdir / 'motion-sense' / 'data' / 'A_DeviceMotion_data'
-            if not extracted_dir.exists():
-                raise FileNotFoundError(f"Extracted directory not found: {extracted_dir}")
+            # Gyroscope ZIPファイルを解凍
+            gyro_zip = tmpdir / 'motion-sense' / 'data' / 'C_Gyroscope_data.zip'
+            if not gyro_zip.exists():
+                raise FileNotFoundError(f"Gyroscope ZIP not found: {gyro_zip}")
+
+            logger.info(f"Extracting {gyro_zip.name}...")
+            with zipfile.ZipFile(gyro_zip, 'r') as zip_ref:
+                zip_ref.extractall(tmpdir / 'motion-sense' / 'data')
+
+            # フォルダを移動
+            extracted_acc = tmpdir / 'motion-sense' / 'data' / 'B_Accelerometer_data'
+            extracted_gyro = tmpdir / 'motion-sense' / 'data' / 'C_Gyroscope_data'
+
+            if not extracted_acc.exists():
+                raise FileNotFoundError(f"Extracted accelerometer dir not found: {extracted_acc}")
+            if not extracted_gyro.exists():
+                raise FileNotFoundError(f"Extracted gyroscope dir not found: {extracted_gyro}")
 
             # 既存のディレクトリがあれば削除
-            if target_dir.exists():
-                shutil.rmtree(target_dir)
+            if acc_dir.exists():
+                shutil.rmtree(acc_dir)
+            if gyro_dir.exists():
+                shutil.rmtree(gyro_dir)
 
-            shutil.move(str(extracted_dir), str(target_dir))
-            logger.info(f"MotionSense data successfully downloaded to {target_dir}")
+            shutil.move(str(extracted_acc), str(acc_dir))
+            shutil.move(str(extracted_gyro), str(gyro_dir))
+            logger.info(f"MotionSense data successfully downloaded to {ms_dir}")
 
         # ダウンロード完了を確認
-        csv_files = list(target_dir.glob('*/*.csv'))
-        logger.info(f"Found {len(csv_files)} CSV files in {target_dir}")
+        acc_files = list(acc_dir.glob('*/*.csv'))
+        gyro_files = list(gyro_dir.glob('*/*.csv'))
+        logger.info(f"Found {len(acc_files)} accelerometer CSV files")
+        logger.info(f"Found {len(gyro_files)} gyroscope CSV files")
 
     def load_raw_data(self) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
         """
@@ -179,12 +194,14 @@ class MotionSensePreprocessor(BasePreprocessor):
 
         Returns:
             {subject_id: (data, labels)} の辞書
-                data: (num_samples, 12) - DeviceMotionの12チャンネル
+                data: (num_samples, 6) - ACC(3) + GYRO(3)
                 labels: (num_samples,) - 活動ラベル
         """
-        ms_dir = self.raw_data_path / 'motionsense' / 'A_DeviceMotion_data'
+        ms_dir = self.raw_data_path / 'motionsense'
+        acc_dir = ms_dir / 'B_Accelerometer_data'
+        gyro_dir = ms_dir / 'C_Gyroscope_data'
 
-        if not ms_dir.exists():
+        if not acc_dir.exists() or not gyro_dir.exists():
             raise FileNotFoundError(
                 f"MotionSense data not found at {ms_dir}\n"
                 "Please run download_dataset() or manually download the dataset."
@@ -201,41 +218,61 @@ class MotionSensePreprocessor(BasePreprocessor):
 
             for trial in trials:
                 # ディレクトリ名: {activity}_{trial} (例: dws_1, ups_3)
-                trial_dir = ms_dir / f"{act_name}_{trial}"
+                acc_trial_dir = acc_dir / f"{act_name}_{trial}"
+                gyro_trial_dir = gyro_dir / f"{act_name}_{trial}"
 
-                if not trial_dir.exists():
-                    logger.warning(f"Trial directory not found: {trial_dir}")
+                if not acc_trial_dir.exists() or not gyro_trial_dir.exists():
+                    logger.warning(f"Trial directory not found: {act_name}_{trial}")
                     continue
 
                 # 被験者ごとのCSVファイルを取得
-                csv_files = sorted(trial_dir.glob('sub_*.csv'))
+                acc_files = sorted(acc_trial_dir.glob('sub_*.csv'))
 
-                for csv_file in csv_files:
+                for acc_file in acc_files:
                     # ファイル名から被験者IDを取得: sub_1.csv -> 1
                     try:
-                        subject_id = int(csv_file.stem.split('_')[1])
+                        subject_id = int(acc_file.stem.split('_')[1])
                     except (IndexError, ValueError):
-                        logger.warning(f"Invalid filename format: {csv_file.name}")
+                        logger.warning(f"Invalid filename format: {acc_file.name}")
+                        continue
+
+                    # 対応するジャイロファイル
+                    gyro_file = gyro_trial_dir / acc_file.name
+
+                    if not gyro_file.exists():
+                        logger.warning(f"Gyroscope file not found: {gyro_file}")
                         continue
 
                     try:
-                        # CSVを読み込み（'Unnamed: 0'列は削除）
-                        df = pd.read_csv(csv_file)
-                        if 'Unnamed: 0' in df.columns:
-                            df = df.drop(['Unnamed: 0'], axis=1)
+                        # Accelerometer CSVを読み込み
+                        df_acc = pd.read_csv(acc_file)
+                        if 'Unnamed: 0' in df_acc.columns:
+                            df_acc = df_acc.drop(['Unnamed: 0'], axis=1)
+                        acc_data = df_acc[self.acc_columns].values  # (N, 3)
 
-                        # DeviceMotionの12カラムを抽出
-                        data = df[self.device_motion_columns].values  # (N, 12)
+                        # Gyroscope CSVを読み込み
+                        df_gyro = pd.read_csv(gyro_file)
+                        if 'Unnamed: 0' in df_gyro.columns:
+                            df_gyro = df_gyro.drop(['Unnamed: 0'], axis=1)
+                        gyro_data = df_gyro[self.gyro_columns].values  # (N, 3)
+
+                        # サンプル数を揃える（最小長に合わせる）
+                        min_len = min(len(acc_data), len(gyro_data))
+                        acc_data = acc_data[:min_len]
+                        gyro_data = gyro_data[:min_len]
+
+                        # 結合: (N, 6)
+                        combined_data = np.hstack([acc_data, gyro_data])
 
                         # 全サンプルに同じラベルを付与
-                        labels = np.full(len(data), act_label, dtype=np.int32)
+                        labels = np.full(len(combined_data), act_label, dtype=np.int32)
 
                         # 被験者ごとのリストに追加
-                        subject_data_list[subject_id].append((data, labels))
-                        logger.info(f"Loaded {csv_file.name}: data={data.shape}, label={act_label} ({act_name})")
+                        subject_data_list[subject_id].append((combined_data, labels))
+                        logger.info(f"Loaded {acc_file.name}: data={combined_data.shape}, label={act_label} ({act_name})")
 
                     except Exception as e:
-                        logger.error(f"Error loading {csv_file}: {e}")
+                        logger.error(f"Error loading {acc_file}: {e}")
 
         # 同一被験者の複数トライアルを結合
         all_data = {}
@@ -298,9 +335,9 @@ class MotionSensePreprocessor(BasePreprocessor):
             logger.info(f"Processing USER{subject_id:05d}")
             processed[subject_id] = {}
 
-            # Pocketセンサー（12チャンネル全て）
+            # Pocketセンサー（6チャンネル: ACC(3) + GYRO(3)）
             sensor_name = 'Pocket'
-            sensor_data = subject_data  # (N, 12)
+            sensor_data = subject_data  # (N, 6)
 
             # スライディングウィンドウ適用
             windowed_data, windowed_labels = create_sliding_windows(
@@ -318,7 +355,6 @@ class MotionSensePreprocessor(BasePreprocessor):
                 modality_data = windowed_data[:, :, mod_start_ch:mod_end_ch]  # (num_windows, window_size, 3)
 
                 # スケーリング適用（ACCのみ、scale_factorが定義されている場合）
-                # MotionSenseの場合、userAccelerationは既にG単位なのでscale_factor=None
                 if modality_name == 'ACC' and self.scale_factor is not None:
                     modality_data = modality_data / self.scale_factor
                     logger.info(f"  Applied scale_factor={self.scale_factor} to {sensor_name}/{modality_name}")
@@ -348,10 +384,8 @@ class MotionSensePreprocessor(BasePreprocessor):
         処理済みデータを保存
 
         保存形式:
-            data/processed/motionsense/USER00001/Pocket/ATT/X.npy, Y.npy
-            data/processed/motionsense/USER00001/Pocket/GRA/X.npy, Y.npy
-            data/processed/motionsense/USER00001/Pocket/ROT/X.npy, Y.npy
             data/processed/motionsense/USER00001/Pocket/ACC/X.npy, Y.npy
+            data/processed/motionsense/USER00001/Pocket/GYRO/X.npy, Y.npy
         """
         import json
 
