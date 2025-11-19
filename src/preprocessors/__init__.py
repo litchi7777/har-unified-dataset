@@ -187,6 +187,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .imwsha import IMWSHAPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',

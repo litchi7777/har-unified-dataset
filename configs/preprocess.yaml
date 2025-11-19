@@ -451,6 +451,28 @@ datasets:
     # センサー: DeviceMotion (attitude + gravity + rotationRate + userAcceleration)
     # 注: GitHubから手動ダウンロードが必要
 
+  # IM-WSHA (IM-Wearable Smart Home Activities) Dataset
+  imwsha:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は50Hzからリサンプリング、推定値)
+    original_sampling_rate: 50  # Hz (推定値: 可変サンプリングレート)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 11    # Using Computer, Phone Conversation, Vacuum Cleaning, Reading Book, Watching TV, Ironing, Walking, Exercise, Cooking, Drinking, Brushing Hair
+    num_subjects: 10      # 5 females, 5 males (19-60 years, 55-85 kg)
+    num_sensors: 3        # Wrist, Chest, Thigh (MPU-9250 IMU)
+    num_channels: 27      # 3センサー × 9軸 (ACC + GYRO + MAG)
+    # sampling_rateは30Hzにリサンプリングされる
+    # 注: 220シーケンス、45-60秒の可変長
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR

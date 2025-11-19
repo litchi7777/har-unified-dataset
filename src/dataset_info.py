@@ -505,6 +505,29 @@ DATASETS = {
         },
         "notes": "MotionSense dataset. 24 subjects, iPhone 6s DeviceMotion data (attitude+gravity+rotation+userAcceleration)."
     },
+    "IMWSHA": {
+        "sensor_list": ["Wrist", "Chest", "Thigh"],  # MPU-9250 IMU sensors
+        "modalities": ["ACC", "GYRO", "MAG"],  # 加速度 + ジャイロ + 磁気
+        "n_classes": 11,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": None,  # 可変サンプリングレート（推定50-60Hz）
+        "scale_factor": None,  # 単位不明（おそらくG単位）
+        "has_undefined_class": False,  # 全サンプルが有効なクラス
+        "labels": {
+            0: 'Using Computer',
+            1: 'Phone Conversation',
+            2: 'Vacuum Cleaning',
+            3: 'Reading Book',
+            4: 'Watching TV',
+            5: 'Ironing',
+            6: 'Walking',
+            7: 'Exercise',
+            8: 'Cooking',
+            9: 'Drinking',
+            10: 'Brushing Hair'
+        },
+        "notes": "IM-Wearable Smart Home Activities. 10 subjects, 11 smart home activities, 3 IMU sensors (9-axis each)."
+    },
 }
 
 
