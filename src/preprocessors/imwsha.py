@@ -177,12 +177,14 @@ class IMWSHAPreprocessor(BasePreprocessor):
                 logger.warning(f"Invalid subject directory name: {subject_dir.name}")
                 continue
 
-            # CSVファイルを読み込み
-            csv_file = subject_dir / '3-imu-one subject.csv'
+            # CSVファイルを検索（ファイル名が被験者によって異なる）
+            csv_files = list(subject_dir.glob('3-imu*.csv'))
 
-            if not csv_file.exists():
-                logger.warning(f"CSV file not found: {csv_file}")
+            if len(csv_files) == 0:
+                logger.warning(f"No CSV file found in {subject_dir}")
                 continue
+
+            csv_file = csv_files[0]  # 最初のCSVファイルを使用
 
             try:
                 # CSVを読み込み
