@@ -473,7 +473,7 @@ DATASETS = {
         "n_classes": 6,
         "sampling_rate": 30,  # Hz (リサンプリング後)
         "original_sampling_rate": 20,  # Hz (推定値: 1000samples/50s)
-        "scale_factor": None,  # G単位（変換不要）
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
         "has_undefined_class": False,  # 全サンプルが有効なクラス
         "labels": {
             0: 'Badminton',
@@ -510,8 +510,8 @@ DATASETS = {
         "modalities": ["ACC", "GYRO", "MAG"],  # 加速度 + ジャイロ + 磁気
         "n_classes": 11,
         "sampling_rate": 30,  # Hz (リサンプリング後)
-        "original_sampling_rate": None,  # 可変サンプリングレート（推定50-60Hz）
-        "scale_factor": None,  # 単位不明（おそらくG単位）
+        "original_sampling_rate": 50,  # Hz（推定値: 平均ノルム9.8 m/s²から判断）
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
         "has_undefined_class": False,  # 全サンプルが有効なクラス
         "labels": {
             0: 'Using Computer',

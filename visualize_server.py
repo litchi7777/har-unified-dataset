@@ -2944,7 +2944,7 @@ def compare():
 
 def main():
     parser = argparse.ArgumentParser(description='HAR Data Visualization Web App')
-    parser.add_argument('--port', type=int, default=5000, help='Port number (default: 5000)')
+    parser.add_argument('--port', type=int, default=5001, help='Port number (default: 5000)')
     parser.add_argument('--no-debug', action='store_true', help='Disable debug mode (default: enabled)')
     parser.add_argument('--host', type=str, default='127.0.0.1', help='Host address (default: 127.0.0.1)')
 
