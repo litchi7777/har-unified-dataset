@@ -28,6 +28,9 @@ Human Activity Recognition (HAR) データセットの統合前処理・可視�
 | **SELFBACK** | 38 | Wrist, Thigh (2箇所) | Axivity AX3 (ACC) | 9 | 100Hz → 30Hz | 歩行速度バリエーション |
 | **PAAL** | 8 | Wrist (1箇所) | ACC | 24 | 32Hz → 30Hz | 日常生活の細かいジェスチャー |
 | **OPPORTUNITY** | 4 | 7つのIMU + 12個の加速度センサー (113ch) | IMU (ACC, GYRO, MAG) | 17 | 30Hz | 日常生活動作、mid-level gestures |
+| **HMP** | 16 | RightWrist (1箇所) | ACC | 14 | 32Hz → 30Hz | ADL認識、手首装着、6ビット分解能 |
+| **WARD** | 20 | LeftArm, RightArm, Waist, LeftAnkle, RightAnkle (5箇所) | IMU (ACC, GYRO) | 13 | 20Hz → 30Hz | ウェアラブル動作認識、12ビットデジタル値 |
+| **CAPTURE24** | 151 | Wrist (1箇所) | Axivity AX3 (ACC) | 動的 | 100Hz → 30Hz | 大規模日常生活データ、200+活動ラベル |
 
 ## ディレクトリ構成
 
@@ -57,7 +60,10 @@ har-unified-dataset/
 │   │   ├── uschad.py          # USCHAD前処理
 │   │   ├── selfback.py        # SELFBACK前処理
 │   │   ├── paal.py            # PAAL前処理
-│   │   └── opportunity.py     # OPPORTUNITY前処理
+│   │   ├── opportunity.py     # OPPORTUNITY前処理
+│   │   ├── hmp.py             # HMP前処理
+│   │   ├── ward.py            # WARD前処理
+│   │   └── capture24.py       # CAPTURE24前処理
 │   └── visualization/         # 可視化ツール
 │       └── visualize_data.py
 ├── configs/
@@ -177,6 +183,9 @@ data/processed/forthtrace/
 | SELFBACK | なし（G単位） | 100Hz | 30Hz | 150 (5秒) | 歩行速度バリエーション |
 | PAAL | 0.015 (整数→G) | 32Hz | 30Hz | 150 (5秒) | 日常生活の細かいジェスチャー |
 | OPPORTUNITY | 9.8 (m/s²→G) | 30Hz | 30Hz | 150 (5秒) | 113チャンネル全body-wornセンサー |
+| HMP | coded (0-63→-1.5~+1.5G) | 32Hz | 30Hz | 150 (5秒) | 6ビット分解能、右手首ADL認識 |
+| WARD | 1024.0 (12bit→G) | 20Hz | 30Hz | 150 (5秒) | 12ビットデジタル値、5箇所センサー |
+| CAPTURE24 | なし（G単位） | 100Hz | 30Hz | 150 (5秒) | 大規模、動的ラベル（Walmsley2020等） |
 
 **共通仕様:**
 - **ウィンドウサイズ**: 5秒（全データセット30Hzに統一後、150サンプル）
@@ -229,3 +238,6 @@ git submodule update --init --recursive
 - **SELFBACK**: Bach, K., et al. (2018). The selfBACK Decision Support System for Chronic Low Back Pain. PervasiveHealth.
 - **PAAL**: Cumin, J., & Lefebvre, G. (2018). Pervasive Annotation for Activities of Living (PAAL) Dataset. UCI ML Repository. https://doi.org/10.24432/C5S02K
 - **OPPORTUNITY**: Roggen, D., et al. (2010). Collecting complex activity datasets in highly rich networked sensor environments. *International Conference on Networked Sensing Systems* (UCI ML Repository, Dataset #226)
+- **HMP**: Bruno, B., Mastrogiovanni, F., & Sgorbissa, A. (2012). Dataset for ADL Recognition with Wrist-worn Accelerometer. UCI ML Repository. https://doi.org/10.24432/C5PC99
+- **WARD**: Weiss, G. M., & Lockhart, J. W. (2012). The Impact of Personalization on Smartphone-Based Activity Recognition. AAAI Workshop on Activity Context Representation.
+- **CAPTURE24**: Willetts, M., et al. (2018). Statistical machine learning of sleep and physical activity phenotypes from sensor data in 96,220 UK Biobank participants. *Scientific Reports*, 8(1), 7961.
