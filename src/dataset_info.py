@@ -143,7 +143,7 @@ DATASETS = {
             "atr03": ["ACC", "GYRO", "QUAT"],
             "atr04": ["ACC", "GYRO", "QUAT"]
         },
-        "n_classes": 10,  # 9クラス + Undefined(-1)
+        "n_classes": 9,  # 9クラス (0-8) + Undefined(-1)
         "sampling_rate": 30,  # Hz
         "original_sampling_rate": 30,  # Hz (リサンプリング不要)
         "has_undefined_class": True,  # ラベル-1が存在
@@ -551,6 +551,33 @@ DATASETS = {
             11: 'Lie to Stand'
         },
         "notes": "Smartphone-Based Recognition of Human Activities and Postural Transitions. 30 subjects, 6 basic activities + 6 postural transitions."
+    },
+    "UTCOMPLEX": {
+        "sensor_list": ["Pocket", "Wrist"],  # スマートフォン（ポケット・手首装着）
+        "modalities": {
+            "Pocket": ["ACC", "LINACC", "GYRO", "MAG"],
+            "Wrist": ["ACC", "LINACC", "GYRO", "MAG"]
+        },
+        "n_classes": 13,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 50,  # Hz (推定値、論文から)
+        "scale_factor": 9.8,  # m/s² -> G に変換（要データ確認）
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Walk',
+            1: 'Stand',
+            2: 'Jog',
+            3: 'Sit',
+            4: 'Bike',
+            5: 'Upstairs',
+            6: 'Downstairs',
+            7: 'Type',
+            8: 'Write',
+            9: 'Coffee',
+            10: 'Talk',
+            11: 'Smoke',
+            12: 'Eat'
+        },
     },
 }
 
