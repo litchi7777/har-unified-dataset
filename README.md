@@ -31,6 +31,10 @@ Human Activity Recognition (HAR) データセットの統合前処理・可視�
 | **HMP** | 16 | RightWrist (1箇所) | ACC | 14 | 32Hz → 30Hz | ADL認識、手首装着、6ビット分解能 |
 | **WARD** | 20 | LeftArm, RightArm, Waist, LeftAnkle, RightAnkle (5箇所) | IMU (ACC, GYRO) | 13 | 20Hz → 30Hz | ウェアラブル動作認識、12ビットデジタル値 |
 | **CAPTURE24** | 151 | Wrist (1箇所) | Axivity AX3 (ACC) | 動的 | 100Hz → 30Hz | 大規模日常生活データ、200+活動ラベル |
+| **IMSB** | 20 | Wrist, Neck (2箇所) | ACC | 6 | 20Hz → 30Hz | スポーツ活動認識（バドミントン、バスケ等） |
+| **MotionSense** | 24 | Pocket (1箇所) | iPhone DeviceMotion (ATT, GRA, ROT, ACC) | 6 | 50Hz → 30Hz | スマートフォン内蔵センサー、姿勢情報含む |
+| **IMWSHA** | 10 | Wrist, Chest, Thigh (3箇所) | IMU (ACC, GYRO, MAG) | 11 | 50Hz → 30Hz | スマートホーム活動（掃除、料理、PC使用等） |
+| **SBRHAPT** | 30 | Waist (1箇所) | IMU (ACC, GYRO) | 12 | 50Hz → 30Hz | 基本活動+姿勢遷移（座る→立つ等） |
 
 ## ディレクトリ構成
 
@@ -63,7 +67,11 @@ har-unified-dataset/
 │   │   ├── opportunity.py     # OPPORTUNITY前処理
 │   │   ├── hmp.py             # HMP前処理
 │   │   ├── ward.py            # WARD前処理
-│   │   └── capture24.py       # CAPTURE24前処理
+│   │   ├── capture24.py       # CAPTURE24前処理
+│   │   ├── imsb.py            # IMSB前処理
+│   │   ├── motionsense.py     # MotionSense前処理
+│   │   ├── imwsha.py          # IMWSHA前処理
+│   │   └── sbrhapt.py         # SBRHAPT前処理
 │   └── visualization/         # 可視化ツール
 │       └── visualize_data.py
 ├── configs/
@@ -186,6 +194,10 @@ data/processed/forthtrace/
 | HMP | coded (0-63→-1.5~+1.5G) | 32Hz | 30Hz | 150 (5秒) | 6ビット分解能、右手首ADL認識 |
 | WARD | 1024.0 (12bit→G) | 20Hz | 30Hz | 150 (5秒) | 12ビットデジタル値、5箇所センサー |
 | CAPTURE24 | なし（G単位） | 100Hz | 30Hz | 150 (5秒) | 大規模、動的ラベル（Walmsley2020等） |
+| IMSB | 9.8 (m/s²→G) | 20Hz | 30Hz | 150 (5秒) | スポーツ活動、Thighセンサー欠損多数 |
+| MotionSense | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | iPhone DeviceMotion API、4種のモダリティ |
+| IMWSHA | 9.8 (m/s²→G) | 50Hz | 30Hz | 150 (5秒) | スマートホーム活動、MPU-9250 IMU |
+| SBRHAPT | 9.8 (m/s²→G) | 50Hz | 30Hz | 150 (5秒) | 基本活動+姿勢遷移、Galaxy S II使用 |
 
 **共通仕様:**
 - **ウィンドウサイズ**: 5秒（全データセット30Hzに統一後、150サンプル）
@@ -241,3 +253,7 @@ git submodule update --init --recursive
 - **HMP**: Bruno, B., Mastrogiovanni, F., & Sgorbissa, A. (2012). Dataset for ADL Recognition with Wrist-worn Accelerometer. UCI ML Repository. https://doi.org/10.24432/C5PC99
 - **WARD**: Weiss, G. M., & Lockhart, J. W. (2012). The Impact of Personalization on Smartphone-Based Activity Recognition. AAAI Workshop on Activity Context Representation.
 - **CAPTURE24**: Willetts, M., et al. (2018). Statistical machine learning of sleep and physical activity phenotypes from sensor data in 96,220 UK Biobank participants. *Scientific Reports*, 8(1), 7961.
+- **IMSB**: IM-SportingBehaviors Dataset. Intelligent Media Center, Air University, Pakistan. https://portals.au.edu.pk/imc
+- **MotionSense**: Malekzadeh, M., et al. (2019). Mobile Sensor Data Anonymization. ACM IoTDI. https://github.com/mmalekzadeh/motion-sense
+- **IMWSHA**: IM-Wearable Smart Home Activities Dataset. Intelligent Media Center, Air University, Pakistan. https://portals.au.edu.pk/imc
+- **SBRHAPT**: Smartphone-Based Recognition of Human Activities and Postural Transitions Dataset. UCI ML Repository. https://archive.ics.uci.edu/dataset/240/
