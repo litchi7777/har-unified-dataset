@@ -537,12 +537,12 @@ DATASETS = {
         "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
         "has_undefined_class": False,  # 全サンプルが有効なクラス
         "labels": {
-            0: 'Standing',
-            1: 'Sitting',
-            2: 'Lying',
-            3: 'Walking',
-            4: 'Walking Downstairs',
-            5: 'Walking Upstairs',
+            0: 'Walking',
+            1: 'Walking Upstairs',
+            2: 'Walking Downstairs',
+            3: 'Sitting',
+            4: 'Standing',
+            5: 'Laying',
             6: 'Stand to Sit',
             7: 'Sit to Stand',
             8: 'Sit to Lie',

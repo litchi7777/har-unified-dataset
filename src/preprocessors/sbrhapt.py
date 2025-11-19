@@ -54,14 +54,14 @@ class SBRHAPTPreprocessor(BasePreprocessor):
         self.num_activities = 12  # 6 basic + 6 postural transitions
         self.num_subjects = 30
 
-        # 活動ラベルマッピング（labels.txt の activity_id に対応）
+        # 活動ラベルマッピング（activity_labels.txt の activity_id に対応）
         self.activity_labels = {
-            1: 0,   # STANDING
-            2: 1,   # SITTING
-            3: 2,   # LAYING
-            4: 3,   # WALKING
-            5: 4,   # WALKING_DOWNSTAIRS
-            6: 5,   # WALKING_UPSTAIRS
+            1: 0,   # WALKING
+            2: 1,   # WALKING_UPSTAIRS
+            3: 2,   # WALKING_DOWNSTAIRS
+            4: 3,   # SITTING
+            5: 4,   # STANDING
+            6: 5,   # LAYING
             7: 6,   # STAND_TO_SIT
             8: 7,   # SIT_TO_STAND
             9: 8,   # SIT_TO_LIE
