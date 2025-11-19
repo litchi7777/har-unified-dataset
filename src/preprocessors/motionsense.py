@@ -112,14 +112,66 @@ class MotionSensePreprocessor(BasePreprocessor):
     def download_dataset(self) -> None:
         """
         MotionSenseデータセットをダウンロードして解凍
-
-        注: GitHubからダウンロードする場合は手動が推奨
         """
-        raise NotImplementedError(
-            "Please manually download MotionSense dataset from:\n"
-            "https://github.com/mmalekzadeh/motion-sense\n"
-            "Extract 'A_DeviceMotion_data' folder to: data/raw/motionsense/"
-        )
+        import zipfile
+        import tempfile
+        import shutil
+
+        ms_dir = self.raw_data_path / 'motionsense'
+        target_dir = ms_dir / 'A_DeviceMotion_data'
+
+        # 既にダウンロード済みかチェック
+        if target_dir.exists():
+            csv_files = list(target_dir.glob('*/*.csv'))
+            if len(csv_files) >= 100:  # 最低100ファイル以上
+                logger.info(f"MotionSense data already exists at {target_dir}")
+                return
+
+        ms_dir.mkdir(parents=True, exist_ok=True)
+
+        # GitHubからクローン（一時ディレクトリ）
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = Path(tmpdir)
+            logger.info(f"Cloning MotionSense repository...")
+
+            # git cloneを実行
+            import subprocess
+            result = subprocess.run(
+                ['git', 'clone', '--depth=1',
+                 'https://github.com/mmalekzadeh/motion-sense.git',
+                 str(tmpdir / 'motion-sense')],
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode != 0:
+                raise RuntimeError(f"Failed to clone repository: {result.stderr}")
+
+            # ZIPファイルを解凍
+            zip_path = tmpdir / 'motion-sense' / 'data' / 'A_DeviceMotion_data.zip'
+
+            if not zip_path.exists():
+                raise FileNotFoundError(f"ZIP file not found: {zip_path}")
+
+            logger.info(f"Extracting {zip_path.name}...")
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(tmpdir / 'motion-sense' / 'data')
+
+            # A_DeviceMotion_dataフォルダを移動
+            extracted_dir = tmpdir / 'motion-sense' / 'data' / 'A_DeviceMotion_data'
+            if not extracted_dir.exists():
+                raise FileNotFoundError(f"Extracted directory not found: {extracted_dir}")
+
+            # 既存のディレクトリがあれば削除
+            if target_dir.exists():
+                shutil.rmtree(target_dir)
+
+            shutil.move(str(extracted_dir), str(target_dir))
+            logger.info(f"MotionSense data successfully downloaded to {target_dir}")
+
+        # ダウンロード完了を確認
+        csv_files = list(target_dir.glob('*/*.csv'))
+        logger.info(f"Found {len(csv_files)} CSV files in {target_dir}")
 
     def load_raw_data(self) -> Dict[int, Tuple[np.ndarray, np.ndarray]]:
         """
