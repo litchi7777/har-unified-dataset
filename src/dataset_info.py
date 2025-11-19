@@ -528,6 +528,30 @@ DATASETS = {
         },
         "notes": "IM-Wearable Smart Home Activities. 10 subjects, 11 smart home activities, 3 IMU sensors (9-axis each)."
     },
+    "SBRHAPT": {
+        "sensor_list": ["Waist"],  # Samsung Galaxy S II on waist
+        "modalities": ["ACC", "GYRO"],  # 加速度 + ジャイロ
+        "n_classes": 12,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 50,  # Hz
+        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
+        "has_undefined_class": False,  # 全サンプルが有効なクラス
+        "labels": {
+            0: 'Standing',
+            1: 'Sitting',
+            2: 'Lying',
+            3: 'Walking',
+            4: 'Walking Downstairs',
+            5: 'Walking Upstairs',
+            6: 'Stand to Sit',
+            7: 'Sit to Stand',
+            8: 'Sit to Lie',
+            9: 'Lie to Sit',
+            10: 'Stand to Lie',
+            11: 'Lie to Stand'
+        },
+        "notes": "Smartphone-Based Recognition of Human Activities and Postural Transitions. 30 subjects, 6 basic activities + 6 postural transitions."
+    },
 }
 
 

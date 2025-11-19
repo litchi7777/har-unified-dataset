@@ -192,6 +192,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .sbrhapt import SBRHAPTPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',

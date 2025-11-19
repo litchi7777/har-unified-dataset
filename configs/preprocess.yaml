@@ -473,6 +473,29 @@ datasets:
     # sampling_rateは30Hzにリサンプリングされる
     # 注: 220シーケンス、45-60秒の可変長
 
+  # SBRHAPT (Smartphone-Based Recognition of Human Activities and Postural Transitions) Dataset
+  sbrhapt:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は50Hzからリサンプリング)
+    original_sampling_rate: 50  # Hz
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 12    # 6 basic + 6 postural transitions
+    num_subjects: 30      # 19-48 years old
+    num_sensors: 1        # Waist (Samsung Galaxy S II)
+    num_channels: 6       # ACC(3) + GYRO(3)
+    # sampling_rateは30Hzにリサンプリングされる
+    # センサー: 腰装着スマートフォン（3軸加速度 + 3軸ジャイロ）
+    # 注: 元データはm/s^2単位のため、scale_factor=9.8でG単位に変換
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR
