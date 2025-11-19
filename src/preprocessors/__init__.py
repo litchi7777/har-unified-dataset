@@ -177,6 +177,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from .imsb import IMSBPreprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',

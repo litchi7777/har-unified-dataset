@@ -467,6 +467,24 @@ DATASETS = {
         "labels": {},  # 動的に読み込み（Walmsley2020またはWillettsSpecific2018）
         "notes": "Large-scale daily living dataset. Labels loaded from annotation-label-dictionary.csv. Use 'label_schema' config to select Walmsley2020 or WillettsSpecific2018."
     },
+    "IMSB": {
+        "sensor_list": ["Wrist", "Neck"],  # Thighは欠損値多いため除外
+        "modalities": ["ACC"],  # 3軸加速度のみ
+        "n_classes": 6,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 20,  # Hz (推定値: 1000samples/50s)
+        "scale_factor": None,  # G単位（変換不要）
+        "has_undefined_class": False,  # 全サンプルが有効なクラス
+        "labels": {
+            0: 'Badminton',
+            1: 'Basketball',
+            2: 'Cycling',
+            3: 'Football',
+            4: 'Skipping',
+            5: 'TableTennis'
+        },
+        "notes": "IM-SportingBehaviors dataset. 20 subjects, 6 sports. Thigh sensor excluded due to 30% missing values."
+    },
 }
 
 

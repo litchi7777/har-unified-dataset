@@ -406,6 +406,28 @@ datasets:
     # ラベル: 200+活動 → Walmsley2020またはWillettsSpecific2018スキーマで集約
     # 注: データサイズ大（6.5GB zip, ~30GB extracted）
 
+  # IMSB (IM-SportingBehaviors) Dataset
+  imsb:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は20Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 6     # Badminton, Basketball, Cycling, Football, Skipping, TableTennis
+    num_subjects: 20      # プロ＋アマチュアアスリート（20-30歳）
+    num_sensors: 2        # Wrist, Neck (Thighは欠損値多いため除外)
+    num_channels: 6       # 2センサー × 3軸加速度
+    original_sampling_rate: 20  # Hz (推定値: 1000samples/50s)
+    # sampling_rateは30Hzにリサンプリングされる
+    # 注: Thighセンサーは30%欠損値のため除外
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR
