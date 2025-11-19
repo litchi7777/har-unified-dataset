@@ -534,7 +534,7 @@ DATASETS = {
         "n_classes": 12,
         "sampling_rate": 30,  # Hz (リサンプリング後)
         "original_sampling_rate": 50,  # Hz
-        "scale_factor": 9.8,  # m/s^2 -> G に変換（加速度のみ）
+        "scale_factor": None,  # 既にG単位（-1〜1の範囲）
         "has_undefined_class": False,  # 全サンプルが有効なクラス
         "labels": {
             0: 'Walking',

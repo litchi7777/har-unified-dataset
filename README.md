@@ -197,7 +197,7 @@ data/processed/forthtrace/
 | IMSB | 9.8 (m/s²→G) | 20Hz | 30Hz | 150 (5秒) | スポーツ活動、Thighセンサー欠損多数 |
 | MotionSense | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | iPhone DeviceMotion API、4種のモダリティ |
 | IMWSHA | 9.8 (m/s²→G) | 50Hz | 30Hz | 150 (5秒) | スマートホーム活動、MPU-9250 IMU |
-| SBRHAPT | 9.8 (m/s²→G) | 50Hz | 30Hz | 150 (5秒) | 基本活動+姿勢遷移、Galaxy S II使用 |
+| SBRHAPT | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 基本活動+姿勢遷移、Galaxy S II使用 |
 
 **共通仕様:**
 - **ウィンドウサイズ**: 5秒（全データセット30Hzに統一後、150サンプル）
