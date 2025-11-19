@@ -335,6 +335,77 @@ datasets:
     num_channels: 12      # 2センサー × (ACC:3 + GYRO:3)
     original_sampling_rate: 20  # Hz (元データ)
 
+  # WARD (Wearable Action Recognition Database) Dataset
+  ward:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は20Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 13    # Stand, Sit, Lie, Walk Forward, Walk Left/Right-Circle, Turn Left/Right, Go Up/Downstairs, Jog, Jump, Push Wheelchair
+    num_subjects: 20      # 20人の被験者
+    num_sensors: 5        # LeftArm, RightArm, Waist, LeftAnkle, RightAnkle
+    num_channels: 25      # 5センサー × (ACC:3 + GYRO:2)
+    original_sampling_rate: 20  # Hz (元データ)
+    # sampling_rateは30Hzにリサンプリングされる
+
+  # HMP (Dataset for ADL Recognition with Wrist-worn Accelerometer)
+  hmp:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は32Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 14    # Brush Teeth, Climb Stairs, Comb Hair, Descend Stairs, Drink Glass, Eat Meat, Eat Soup, Getup Bed, Liedown Bed, Pour Water, Sitdown Chair, Standup Chair, Use Telephone, Walk
+    num_subjects: 16      # 16人の被験者（実際のファイルには27のユニークID）
+    num_sensors: 1        # RightWrist
+    num_channels: 3       # 3軸加速度センサー
+    original_sampling_rate: 32  # Hz (元データ)
+    # sampling_rateは30Hzにリサンプリングされる
+    # データ範囲: 6ビット coded values (0-63 = -1.5g to +1.5g)
+
+  # CAPTURE-24 (Large-scale daily living HAR) Dataset
+  capture24:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (元は100Hzからリサンプリング)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # ラベルスキーマ
+    label_schema: 'Walmsley2020'  # または 'WillettsSpecific2018'
+
+    # サブセット化（オプション: メモリ/時間節約）
+    max_participants: null  # null = all 151 participants, or specify number (e.g., 50)
+
+    # データセット情報（参考用）
+    num_participants: 151  # 参加者数
+    num_sensors: 1         # Wrist のみ
+    num_channels: 3        # 3軸加速度
+    original_sampling_rate: 100  # Hz (Axivity AX3)
+    # sampling_rateは30Hzにリサンプリングされる
+    # ラベル: 200+活動 → Walmsley2020またはWillettsSpecific2018スキーマで集約
+    # 注: データサイズ大（6.5GB zip, ~30GB extracted）
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR

@@ -407,6 +407,66 @@ DATASETS = {
             4: 'Bus'
         },
     },
+    "WARD": {
+        "sensor_list": ["LeftArm", "RightArm", "Waist", "LeftAnkle", "RightAnkle"],
+        "modalities": ["ACC", "GYRO"],  # 加速度センサー（3軸） + ジャイロスコープ（2軸）
+        "n_classes": 13,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 20,  # Hz
+        "scale_factor": 1024.0,  # 12-bit digital values (±2g) -> G に変換
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Stand',
+            1: 'Sit',
+            2: 'Lie',
+            3: 'Walk Forward',
+            4: 'Walk Left-Circle',
+            5: 'Walk Right-Circle',
+            6: 'Turn Left',
+            7: 'Turn Right',
+            8: 'Go Upstairs',
+            9: 'Go Downstairs',
+            10: 'Jog',
+            11: 'Jump',
+            12: 'Push Wheelchair'
+        },
+    },
+    "HMP": {
+        "sensor_list": ["RightWrist"],  # 右手首の単一3軸加速度センサー
+        "modalities": ["ACC"],  # 加速度センサーのみ（3軸）
+        "n_classes": 14,
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 32,  # Hz
+        "scale_factor": 63.0 / 3.0,  # 6-bit coded values (0-63 = -1.5g to +1.5g) -> G に変換
+        "has_undefined_class": False,  # すべてのサンプルが定義済みクラス
+        "labels": {
+            0: 'Brush Teeth',
+            1: 'Climb Stairs',
+            2: 'Comb Hair',
+            3: 'Descend Stairs',
+            4: 'Drink Glass',
+            5: 'Eat Meat',
+            6: 'Eat Soup',
+            7: 'Getup Bed',
+            8: 'Liedown Bed',
+            9: 'Pour Water',
+            10: 'Sitdown Chair',
+            11: 'Standup Chair',
+            12: 'Use Telephone',
+            13: 'Walk'
+        },
+    },
+    "CAPTURE24": {
+        "sensor_list": ["Wrist"],  # 手首装着型加速度計
+        "modalities": ["ACC"],  # 3軸加速度のみ
+        "n_classes": None,  # 動的にannotation-label-dictionary.csvから読み込み
+        "sampling_rate": 30,  # Hz (リサンプリング後)
+        "original_sampling_rate": 100,  # Hz (Axivity AX3)
+        "scale_factor": None,  # データで確認が必要（おそらくG単位）
+        "has_undefined_class": True,  # アノテーションがNAのウィンドウあり
+        "labels": {},  # 動的に読み込み（Walmsley2020またはWillettsSpecific2018）
+        "notes": "Large-scale daily living dataset. Labels loaded from annotation-label-dictionary.csv. Use 'label_schema' config to select Walmsley2020 or WillettsSpecific2018."
+    },
 }
 
 

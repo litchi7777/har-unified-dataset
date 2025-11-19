@@ -162,6 +162,21 @@ try:
 except ImportError:
     pass
 
+try:
+    from .ward import WARDPreprocessor
+except ImportError:
+    pass
+
+try:
+    from .hmp import HMPPreprocessor
+except ImportError:
+    pass
+
+try:
+    from .capture24 import Capture24Preprocessor
+except ImportError:
+    pass
+
 
 __all__ = [
     'BasePreprocessor',
