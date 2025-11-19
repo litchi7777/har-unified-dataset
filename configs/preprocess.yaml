@@ -496,6 +496,28 @@ datasets:
     # センサー: 腰装着スマートフォン（3軸加速度 + 3軸ジャイロ）
     # 注: 元データはm/s^2単位のため、scale_factor=9.8でG単位に変換
 
+  # CHAD (Complex Human Activities Dataset)
+  chad:
+    # データパス
+    raw_data_path: data/raw
+    processed_data_path: data/processed
+
+    # サンプリングレート
+    target_sampling_rate: 30  # Hz (推定50Hzからリサンプリング)
+    original_sampling_rate: 50  # Hz (推定値、論文から)
+
+    # ウィンドウパラメータ
+    window_size: 150      # 5秒 @ 30Hz
+    stride: 30            # 1秒 @ 30Hz (80%オーバーラップ)
+
+    # データセット情報（参考用）
+    num_activities: 13    # Walk, Stand, Jog, Sit, Bike, Upstairs, Downstairs, Type, Write, Coffee, Talk, Smoke, Eat
+    num_sensors: 2        # Pocket, Wrist (スマートフォン装着位置)
+    num_channels: 12      # ACC(3) + Linear ACC(3) + GYRO(3) + MAG(3)
+    # sampling_rateは30Hzにリサンプリングされる
+    # センサー: スマートフォン（ポケット・手首装着）
+    # モダリティ: ACC + Linear Acceleration + GYRO + MAG
+
 # ロギング設定
 logging:
   level: INFO           # DEBUG, INFO, WARNING, ERROR

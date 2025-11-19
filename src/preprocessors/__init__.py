@@ -178,6 +178,11 @@ except ImportError:
     pass
 
 try:
+    from .chad import CHADPreprocessor
+except ImportError:
+    pass
+
+try:
     from .imsb import IMSBPreprocessor
 except ImportError:
     pass

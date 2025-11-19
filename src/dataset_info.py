@@ -552,7 +552,7 @@ DATASETS = {
         },
         "notes": "Smartphone-Based Recognition of Human Activities and Postural Transitions. 30 subjects, 6 basic activities + 6 postural transitions."
     },
-    "UTCOMPLEX": {
+    "CHAD": {
         "sensor_list": ["Pocket", "Wrist"],  # スマートフォン（ポケット・手首装着）
         "modalities": {
             "Pocket": ["ACC", "LINACC", "GYRO", "MAG"],

@@ -117,6 +117,49 @@ def extract_tar(tar_path: Path, extract_to: Path, desc: Optional[str] = None) ->
     return extract_to
 
 
+def extract_rar(rar_path: Path, extract_to: Path, desc: Optional[str] = None) -> Path:
+    """
+    RARアーカイブを解凍（unrarコマンドを使用）
+
+    Args:
+        rar_path: RARファイルのパス
+        extract_to: 解凍先ディレクトリ
+        desc: プログレスバーの説明文
+
+    Returns:
+        解凍先のパス
+    """
+    import subprocess
+
+    if desc is None:
+        desc = 'Extracting RAR'
+
+    logger.info(f"Extracting {rar_path} to {extract_to}")
+
+    extract_to.mkdir(parents=True, exist_ok=True)
+
+    # unrarコマンドを使用して解凍
+    # x: 完全パスで解凍, -y: すべてYes
+    try:
+        result = subprocess.run(
+            ['unrar', 'x', '-y', str(rar_path), str(extract_to) + '/'],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        logger.info(f"Extraction complete: {extract_to}")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to extract RAR: {e.stderr}")
+        raise
+    except FileNotFoundError:
+        raise RuntimeError(
+            "unrar command not found. "
+            "Please install it: apt-get install unrar (Linux) or brew install unrar (macOS)"
+        )
+
+    return extract_to
+
+
 def extract_archive(archive_path: Path, extract_to: Path, desc: Optional[str] = None) -> Path:
     """
     アーカイブファイルを自動判定して解凍
@@ -135,6 +178,8 @@ def extract_archive(archive_path: Path, extract_to: Path, desc: Optional[str] = 
         return extract_zip(archive_path, extract_to, desc)
     elif suffix in ['.tar', '.gz', '.tgz', '.bz2', '.xz']:
         return extract_tar(archive_path, extract_to, desc)
+    elif suffix == '.rar':
+        return extract_rar(archive_path, extract_to, desc)
     else:
         raise ValueError(f"Unsupported archive format: {suffix}")
 
