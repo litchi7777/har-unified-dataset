@@ -382,12 +382,34 @@ class LaraPreprocessor(BasePreprocessor):
 
             total_stats['users'][user_name] = user_stats
 
-        # 統計情報をJSONで保存
-        stats_path = base_path / 'dataset_stats.json'
-        with open(stats_path, 'w') as f:
-            json.dump(total_stats, f, indent=2)
+        # メタデータを保存（DSADSと同じフォーマット）
+        metadata_path = base_path / 'metadata.json'
+        with open(metadata_path, 'w') as f:
+            # NumPy型をJSON互換に変換
+            def convert_to_serializable(obj):
+                if isinstance(obj, np.integer):
+                    return int(obj)
+                elif isinstance(obj, np.floating):
+                    return float(obj)
+                elif isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                elif isinstance(obj, tuple):
+                    return list(obj)
+                return obj
 
-        logger.info(f"Saved dataset statistics to {stats_path}")
+            def recursive_convert(d):
+                if isinstance(d, dict):
+                    return {k: recursive_convert(v) for k, v in d.items()}
+                elif isinstance(d, list):
+                    return [recursive_convert(v) for v in d]
+                else:
+                    return convert_to_serializable(d)
+
+            serializable_stats = recursive_convert(total_stats)
+            json.dump(serializable_stats, f, indent=2)
+
+        logger.info(f"Saved metadata to {metadata_path}")
+        logger.info(f"Preprocessing completed: {base_path}")
 
     def process(self) -> None:
         """
