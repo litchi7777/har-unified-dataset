@@ -412,6 +412,11 @@ class OpportunityPreprocessor(BasePreprocessor):
         for person_id, (person_data, labels) in data.items():
             logger.info(f"Processing USER{person_id:05d}")
 
+            # データが空の場合はスキップ
+            if len(person_data) == 0:
+                logger.warning(f"  USER{person_id:05d} has no valid data, skipping")
+                continue
+
             processed[person_id] = {}
 
             # 各センサーグループについて処理
