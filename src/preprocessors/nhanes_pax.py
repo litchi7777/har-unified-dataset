@@ -757,18 +757,102 @@ class NHANESPreprocessor(BasePreprocessor):
     def save_processed_data(self, stats: Dict[str, Any]) -> None:
         """
         処理済みデータの保存（統計情報の保存）
-        
+
         Args:
             stats: 処理結果の統計情報
         """
-        # 統計情報をJSONファイルに保存
         import json
-        
+        import numpy as np
+        from .utils import get_class_distribution
+
+        # 統計情報をJSONファイルに保存
         stats_file = self.processed_data_path / "processing_stats.json"
         with open(stats_file, 'w') as f:
             json.dump(stats, f, indent=2)
-        
+
         logger.info(f"Processing statistics saved to {stats_file}")
+
+        # metadata.jsonを生成（他のデータセットとの一貫性のため）
+        base_path = self.processed_data_path
+        metadata = {
+            'dataset': 'nhanes',
+            'sensor_names': ['PAX'],
+            'modalities': ['ACC'],
+            'channels_per_modality': 3,
+            'original_sampling_rate': 80,
+            'target_sampling_rate': self.config.get('target_sampling_rate', 80),
+            'window_size': self.config.get('window_size', 400),
+            'stride': self.config.get('stride', 80),
+            'normalization': 'none',
+            'scale_factor': None,
+            'data_dtype': 'float16',
+            'users': {}
+        }
+
+        # 各ユーザーのデータを読み込んで統計を収集
+        user_dirs = sorted([d for d in base_path.iterdir() if d.is_dir() and d.name.startswith('USER')])
+        logger.info(f"Collecting metadata for {len(user_dirs)} users...")
+
+        for user_dir in user_dirs:
+            user_name = user_dir.name
+            acc_path = user_dir / 'PAX' / 'ACC'
+
+            if not acc_path.exists():
+                continue
+
+            X_path = acc_path / 'X.npy'
+            Y_path = acc_path / 'Y.npy'
+
+            if not X_path.exists() or not Y_path.exists():
+                continue
+
+            try:
+                # ヘッダーのみ読み込んで形状を取得（メモリ節約）
+                X_shape = np.load(X_path, mmap_mode='r').shape
+                Y = np.load(Y_path)
+
+                metadata['users'][user_name] = {
+                    'sensor_modalities': {
+                        'PAX/ACC': {
+                            'X_shape': list(X_shape),
+                            'Y_shape': list(Y.shape),
+                            'num_windows': int(len(Y)),
+                            'class_distribution': get_class_distribution(Y)
+                        }
+                    }
+                }
+            except Exception as e:
+                logger.warning(f"Failed to read metadata for {user_name}: {e}")
+                continue
+
+        # metadata.jsonを保存
+        metadata_path = base_path / 'metadata.json'
+        with open(metadata_path, 'w') as f:
+            # NumPy型をJSON互換に変換
+            def convert_to_serializable(obj):
+                if isinstance(obj, np.integer):
+                    return int(obj)
+                elif isinstance(obj, np.floating):
+                    return float(obj)
+                elif isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                elif isinstance(obj, tuple):
+                    return list(obj)
+                return obj
+
+            def recursive_convert(d):
+                if isinstance(d, dict):
+                    return {k: recursive_convert(v) for k, v in d.items()}
+                elif isinstance(d, list):
+                    return [recursive_convert(v) for v in d]
+                else:
+                    return convert_to_serializable(d)
+
+            serializable_metadata = recursive_convert(metadata)
+            json.dump(serializable_metadata, f, indent=2)
+
+        logger.info(f"Metadata saved to {metadata_path}")
+        logger.info(f"Total users in metadata: {len(metadata['users'])}")
     
     def preprocess(self) -> None:
         """
