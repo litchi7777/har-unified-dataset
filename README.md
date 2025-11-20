@@ -35,6 +35,9 @@ Human Activity Recognition (HAR) データセットの統合前処理・可視�
 | **MotionSense** | 24 | Pocket (1箇所) | iPhone (ACC, GYRO) | 6 | 50Hz → 30Hz | スマートフォン内蔵センサー、生の加速度データ |
 | **IMWSHA** | 10 | Wrist, Chest, Thigh (3箇所) | IMU (ACC, GYRO, MAG) | 11 | 50Hz → 30Hz | スマートホーム活動（掃除、料理、PC使用等） |
 | **SBRHAPT** | 30 | Waist (1箇所) | IMU (ACC, GYRO) | 12 | 50Hz → 30Hz | 基本活動+姿勢遷移（座る→立つ等） |
+| **CHAD** | 2 | Pocket, Wrist (2箇所) | IMU (ACC, LINACC, GYRO, MAG) | 13 | 50Hz → 30Hz | 複雑な人間活動、線形加速度含む |
+| **HHAR** | 多数 | Phones, Watch (2箇所) | IMU (ACC, GYRO) | 6 | 可変 → 30Hz | デバイス異質性、複数機種混在 |
+| **TMD** | 16 | Smartphone (1箇所) | IMU (ACC, GYRO) | 5 | 可変 → 30Hz | 交通手段検出（徒歩、車、電車等） |
 
 ## ディレクトリ構成
 
@@ -71,7 +74,10 @@ har-unified-dataset/
 │   │   ├── imsb.py            # IMSB前処理
 │   │   ├── motionsense.py     # MotionSense前処理
 │   │   ├── imwsha.py          # IMWSHA前処理
-│   │   └── sbrhapt.py         # SBRHAPT前処理
+│   │   ├── sbrhapt.py         # SBRHAPT前処理
+│   │   ├── chad.py            # CHAD前処理
+│   │   ├── hhar.py            # HHAR前処理
+│   │   └── tmd.py             # TMD前処理
 │   └── visualization/         # 可視化ツール
 │       └── visualize_data.py
 ├── configs/
@@ -198,6 +204,9 @@ data/processed/forthtrace/
 | MotionSense | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | iPhone生加速度+ジャイロ、2モダリティ |
 | IMWSHA | 9.8 (m/s²→G) | 50Hz | 30Hz | 150 (5秒) | スマートホーム活動、MPU-9250 IMU |
 | SBRHAPT | なし（G単位） | 50Hz | 30Hz | 150 (5秒) | 基本活動+姿勢遷移、Galaxy S II使用 |
+| CHAD | 9.8 (m/s²→G) | 50Hz | 30Hz | 150 (5秒) | 複雑な活動認識、線形加速度含む |
+| HHAR | 9.8 (m/s²→G) | 可変 | 30Hz | 150 (5秒) | デバイス異質性、機種別サンプリングレート |
+| TMD | 9.8 (m/s²→G) | 可変 | 30Hz | 150 (5秒) | 交通手段検出、イベントドリブン |
 
 **共通仕様:**
 - **ウィンドウサイズ**: 5秒（全データセット30Hzに統一後、150サンプル）
@@ -257,3 +266,6 @@ git submodule update --init --recursive
 - **MotionSense**: Malekzadeh, M., et al. (2019). Mobile Sensor Data Anonymization. ACM IoTDI. https://github.com/mmalekzadeh/motion-sense
 - **IMWSHA**: IM-Wearable Smart Home Activities Dataset. Intelligent Media Center, Air University, Pakistan. https://portals.au.edu.pk/imc
 - **SBRHAPT**: Smartphone-Based Recognition of Human Activities and Postural Transitions Dataset. UCI ML Repository. https://archive.ics.uci.edu/dataset/240/
+- **CHAD**: Shoaib, M., et al. (2016). Complex Human Activity Recognition Using Smartphone and Wrist-Worn Motion Sensors. *Sensors*, 16(4), 426. https://doi.org/10.3390/s16040426
+- **HHAR**: Stisen, A., et al. (2015). Smart Devices are Different: Assessing and Mitigating Mobile Sensing Heterogeneities for Activity Recognition. In *ACM SenSys*. UCI ML Repository. https://doi.org/10.24432/C5MS5R
+- **TMD**: Transportation Mode Detection Dataset. GitHub: https://github.com/robieta/cs229_project
